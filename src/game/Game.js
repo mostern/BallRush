@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { CONFIG, STORAGE_KEYS } from "../config.js";
+import { CONFIG, LEGACY_STORAGE_KEYS, STORAGE_KEYS, readStorage, writeStorage } from "../config.js";
 import { AvalancheSystem } from "./AvalancheSystem.js";
 import { BallController } from "./BallController.js";
 import { BiomeEnvironment } from "./BiomeEnvironment.js";
@@ -9,6 +9,7 @@ import { CollisionSystem } from "./CollisionSystem.js";
 import { DifficultyManager } from "./DifficultyManager.js";
 import { GhostSystem } from "./GhostSystem.js";
 import { Input } from "./Input.js";
+import { LEVELS, getLevel } from "./levels.js";
 import { ScoreManager } from "./ScoreManager.js";
 import { SKINS, getSkin } from "./skins.js";
 import { AudioSystem } from "./AudioSystem.js";
@@ -25,6 +26,7 @@ export class Game {
     this.elapsed = 0;
     this.state = "menu";
     this.dailyMode = false;
+    this.selectedLevel = getLevel(readStorage(STORAGE_KEYS.selectedLevel));
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0xbfe8ef);
@@ -44,7 +46,7 @@ export class Game {
     this.score = new ScoreManager();
     this.chunkManager = new ChunkManager(this.scene);
     this.ball = new BallController(this.scene);
-    this.selectedSkin = getSkin(localStorage.getItem(STORAGE_KEYS.selectedSkin)).id;
+    this.selectedSkin = getSkin(readStorage(STORAGE_KEYS.selectedSkin, LEGACY_STORAGE_KEYS.selectedSkin)).id;
     this.ball.applySkin(this.selectedSkin);
     this.cameraController = new CameraController(this.camera);
     this.collisionSystem = new CollisionSystem();
@@ -60,15 +62,18 @@ export class Game {
     this.createLighting();
     this.createSkyRig();
     this.biomeEnvironment = new BiomeEnvironment(this.scene, this.lights, this.skyRig);
+    this.applyLevelTheme();
     this.resetWorld(this.getDailySeed());
 
     this.hud.bind({
       onStartRun: () => this.startRun(this.state === "gameover" && this.dailyMode),
       onDailyRun: () => this.startRun(true),
-      onSkinSelect: (skinId) => this.selectSkin(skinId)
+      onSkinSelect: (skinId) => this.selectSkin(skinId),
+      onLevelSelect: (levelId) => this.selectLevel(levelId)
     });
+    this.hud.renderLevels(LEVELS, this.selectedLevel.id);
     this.hud.renderSkins(SKINS, this.selectedSkin);
-    this.hud.showMenu(this.score.bestScore);
+    this.hud.showMenu(this.score.bestScore, this.selectedLevel);
     this.hud.update(this.score.getSnapshot(), this.ball);
 
     window.addEventListener("resize", () => this.onResize());
@@ -125,6 +130,7 @@ export class Game {
 
   resetWorld(seed) {
     this.seed = seed;
+    this.seedLevelId = this.selectedLevel.id;
     this.chunkManager.reset(seed, (distance) => this.difficultyManager.getDifficultyForDistance(distance));
     const track = this.chunkManager.getTrackInfo(5);
     this.ball.reset(track);
@@ -140,14 +146,14 @@ export class Game {
   startRun(daily = false) {
     this.audio.resume();
     this.dailyMode = daily;
-    const retrySeed = !daily && this.state === "gameover" && this.seed;
-    const seed = daily ? this.getDailySeed() : retrySeed ? this.seed : `run-${Date.now().toString(36)}`;
+    const retrySeed = !daily && this.state === "gameover" && this.seed && this.seedLevelId === this.selectedLevel.id;
+    const seed = daily ? this.getDailySeed() : retrySeed ? this.seed : this.getRunSeed();
     this.resetWorld(seed);
     this.score.reset(seed);
     this.ghost.start(seed);
     this.elapsed = 0;
     this.state = "running";
-    this.hud.showRun(seed, this.ghost.getStatus());
+    this.hud.showRun(seed, this.ghost.getStatus(), this.selectedLevel);
   }
 
   endRun(reason) {
@@ -156,14 +162,36 @@ export class Game {
     const snapshot = this.score.finishRun();
     snapshot.ghostActive = this.ghost.getStatus().active;
     snapshot.ghostSaved = this.ghost.finish(snapshot);
-    this.hud.showGameOver(reason, snapshot);
+    this.hud.showGameOver(reason, snapshot, this.selectedLevel);
   }
 
   selectSkin(skinId) {
     this.selectedSkin = getSkin(skinId).id;
-    localStorage.setItem(STORAGE_KEYS.selectedSkin, this.selectedSkin);
+    writeStorage(STORAGE_KEYS.selectedSkin, this.selectedSkin);
     this.ball.applySkin(this.selectedSkin);
     this.hud.setSelectedSkin(this.selectedSkin);
+  }
+
+  selectLevel(levelId) {
+    const nextLevel = getLevel(levelId);
+    if (nextLevel.id === this.selectedLevel.id) return;
+
+    this.selectedLevel = nextLevel;
+    writeStorage(STORAGE_KEYS.selectedLevel, this.selectedLevel.id);
+    this.applyLevelTheme();
+
+    if (this.state !== "running") {
+      this.resetWorld(this.getDailySeed());
+      this.hud.setSeedLabel(`${this.selectedLevel.label} / ready`);
+    }
+  }
+
+  applyLevelTheme() {
+    this.chunkManager.applyLevel(this.selectedLevel);
+    this.snowfall.applyLevel(this.selectedLevel);
+    this.avalanche.applyLevel(this.selectedLevel);
+    this.biomeEnvironment.setLevel(this.selectedLevel);
+    this.hud.setSelectedLevel(this.selectedLevel.id);
   }
 
   tick() {
@@ -208,10 +236,10 @@ export class Game {
         this.cameraController
       )
     ) {
-      this.particles.spawnBurst(this.ball.position, 100, 0xf3fbff, 10, 0.85);
+      this.particles.spawnBurst(this.ball.position, 100, this.avalanche.getEffectColor(), 10, 0.85);
       this.cameraController.addShake(1.1);
       this.audio.crash();
-      this.endRun("Avalanche");
+      this.endRun("Caught");
       return;
     }
     this.collisionSystem.update(
@@ -268,7 +296,11 @@ export class Game {
     const yyyy = date.getFullYear();
     const mm = String(date.getMonth() + 1).padStart(2, "0");
     const dd = String(date.getDate()).padStart(2, "0");
-    return `daily-seed-${yyyy}-${mm}-${dd}`;
+    return `${this.selectedLevel.seedPrefix}-daily-${yyyy}-${mm}-${dd}`;
+  }
+
+  getRunSeed() {
+    return `${this.selectedLevel.seedPrefix}-run-${Date.now().toString(36)}`;
   }
 
   onResize() {

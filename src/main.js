@@ -5,5 +5,5 @@ const root = document.querySelector("#app");
 const game = new Game(root);
 
 if (import.meta.env.DEV) {
-  window.__snowballRush = game;
+  window.__ballRush = game;
 }

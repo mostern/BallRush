@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { CONFIG } from "../config.js";
+import { getLevel } from "./levels.js";
 import { clamp } from "./math.js";
 
 export class AvalancheSystem {
@@ -18,7 +19,7 @@ export class AvalancheSystem {
     this.group.add(this.wall);
 
     this.chunks = [];
-    const chunkMaterial = new THREE.MeshStandardMaterial({
+    this.chunkMaterial = new THREE.MeshStandardMaterial({
       color: 0xe8f7ff,
       roughness: 0.84,
       transparent: true,
@@ -27,15 +28,24 @@ export class AvalancheSystem {
       flatShading: true
     });
     for (let i = 0; i < 18; i += 1) {
-      const chunk = new THREE.Mesh(new THREE.DodecahedronGeometry(0.5 + Math.random() * 1.4, 0), chunkMaterial);
+      const chunk = new THREE.Mesh(new THREE.DodecahedronGeometry(0.5 + Math.random() * 1.4, 0), this.chunkMaterial);
       chunk.position.set((Math.random() - 0.5) * 42, Math.random() * 8, (Math.random() - 0.5) * 9);
       chunk.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
       this.group.add(chunk);
       this.chunks.push(chunk);
     }
+    this.effectColor = 0xf3fbff;
+    this.applyLevel(getLevel());
     this.group.visible = false;
     scene.add(this.group);
     this.reset();
+  }
+
+  applyLevel(level) {
+    const chase = getLevel(level?.id || level).chase;
+    this.wallMaterial.color.setHex(chase.wall);
+    this.chunkMaterial.color.setHex(chase.chunk);
+    this.effectColor = chase.effect;
   }
 
   reset() {
@@ -79,7 +89,7 @@ export class AvalancheSystem {
     this.warningTimer -= dt;
     if (this.danger > 0.64 && this.warningTimer <= 0) {
       camera.addShake(0.08 + this.danger * 0.16);
-      effects.spawnBurst(ball.position, 14, 0xf3fbff, 4 + this.danger * 3, 0.35);
+      effects.spawnBurst(ball.position, 14, this.effectColor, 4 + this.danger * 3, 0.35);
       this.warningTimer = 0.2;
     }
 
@@ -92,5 +102,9 @@ export class AvalancheSystem {
       gap: this.gap,
       danger: this.danger
     };
+  }
+
+  getEffectColor() {
+    return this.effectColor;
   }
 }

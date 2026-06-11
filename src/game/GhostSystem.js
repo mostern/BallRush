@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { CONFIG, STORAGE_KEYS } from "../config.js";
+import { CONFIG, LEGACY_STORAGE_KEYS, STORAGE_KEYS, readStorage, writeStorage } from "../config.js";
 import { lerp } from "./math.js";
 
 const STORE_VERSION = 1;
@@ -138,7 +138,7 @@ export class GhostSystem {
 
   readStore() {
     try {
-      const parsed = JSON.parse(localStorage.getItem(STORAGE_KEYS.bestGhost) || "null");
+      const parsed = JSON.parse(readStorage(STORAGE_KEYS.bestGhost, LEGACY_STORAGE_KEYS.bestGhost) || "null");
       if (parsed?.version === STORE_VERSION && parsed.runs && typeof parsed.runs === "object") {
         return parsed;
       }
@@ -148,11 +148,11 @@ export class GhostSystem {
 
   writeStore(store) {
     try {
-      localStorage.setItem(STORAGE_KEYS.bestGhost, JSON.stringify(store));
+      writeStorage(STORAGE_KEYS.bestGhost, JSON.stringify(store));
     } catch {
       const entries = Object.entries(store.runs).sort(([, a], [, b]) => b.createdAt - a.createdAt);
       store.runs = Object.fromEntries(entries.slice(0, Math.max(1, Math.floor(MAX_STORED_RUNS / 2))));
-      localStorage.setItem(STORAGE_KEYS.bestGhost, JSON.stringify(store));
+      writeStorage(STORAGE_KEYS.bestGhost, JSON.stringify(store));
     }
   }
 

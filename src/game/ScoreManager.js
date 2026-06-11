@@ -1,10 +1,10 @@
-import { CONFIG, STORAGE_KEYS } from "../config.js";
+import { CONFIG, LEGACY_STORAGE_KEYS, STORAGE_KEYS, readStorage, writeStorage } from "../config.js";
 import { clamp } from "./math.js";
 
 export class ScoreManager {
   constructor() {
-    this.bestScore = readNumber(STORAGE_KEYS.bestScore);
-    this.bestDistance = readNumber(STORAGE_KEYS.bestDistance);
+    this.bestScore = readNumber(STORAGE_KEYS.bestScore, LEGACY_STORAGE_KEYS.bestScore);
+    this.bestDistance = readNumber(STORAGE_KEYS.bestDistance, LEGACY_STORAGE_KEYS.bestDistance);
     this.reset("daily");
   }
 
@@ -139,11 +139,11 @@ export class ScoreManager {
     this.newBest = this.score > this.bestScore;
     if (this.newBest) {
       this.bestScore = Math.floor(this.score);
-      writeValue(STORAGE_KEYS.bestScore, String(this.bestScore));
+      writeStorage(STORAGE_KEYS.bestScore, String(this.bestScore));
     }
     if (this.distance > this.bestDistance) {
       this.bestDistance = Math.floor(this.distance);
-      writeValue(STORAGE_KEYS.bestDistance, String(this.bestDistance));
+      writeStorage(STORAGE_KEYS.bestDistance, String(this.bestDistance));
     }
     return this.getSnapshot();
   }
@@ -176,12 +176,6 @@ export class ScoreManager {
   }
 }
 
-function readNumber(key) {
-  if (typeof localStorage === "undefined") return 0;
-  return Number(localStorage.getItem(key) || 0);
-}
-
-function writeValue(key, value) {
-  if (typeof localStorage === "undefined") return;
-  localStorage.setItem(key, value);
+function readNumber(key, legacyKey) {
+  return Number(readStorage(key, legacyKey) || 0);
 }

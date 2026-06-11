@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { CONFIG } from "../config.js";
+import { getLevel } from "./levels.js";
 import { RNG } from "./RNG.js";
 import { clamp, lerp, smoothstep } from "./math.js";
 
@@ -22,6 +23,33 @@ export class ChunkManager {
     this.nextIndex = 0;
     this.nextCenterX = 0;
     this.materials = this.createMaterials();
+    this.level = getLevel();
+    this.applyLevel(this.level);
+  }
+
+  applyLevel(level) {
+    this.level = getLevel(level?.id || level);
+    const palette = this.level.materials;
+
+    applyMaterialMap(this.materials.terrain, palette.terrain);
+    applyMaterialMap(this.materials.valley, palette.valley);
+    applyMaterialMap(this.materials.surface, palette.surface);
+
+    [
+      "edgeLine",
+      "rock",
+      "iceBlock",
+      "spike",
+      "roller",
+      "rollerBand",
+      "gatePole",
+      "gateRing",
+      "trunk",
+      "pine",
+      "ramp"
+    ].forEach((key) => {
+      applyMaterialSettings(this.materials[key], palette[key]);
+    });
   }
 
   reset(seed, difficultyProvider) {
@@ -644,4 +672,26 @@ export class ChunkManager {
       ramp: new THREE.MeshStandardMaterial({ color: 0xfff0b0, roughness: 0.54, emissive: 0xff8b2d, emissiveIntensity: 0.18, flatShading: true })
     };
   }
+}
+
+function applyMaterialMap(materials, settings) {
+  if (!materials || !settings) return;
+  Object.entries(settings).forEach(([key, value]) => {
+    applyMaterialSettings(materials[key], value);
+  });
+}
+
+function applyMaterialSettings(material, settings) {
+  if (!material || !settings) return;
+  if (settings.color !== undefined && material.color) material.color.setHex(settings.color);
+  if (settings.emissive !== undefined && material.emissive) material.emissive.setHex(settings.emissive);
+  if (settings.emissiveIntensity !== undefined && material.emissiveIntensity !== undefined) {
+    material.emissiveIntensity = settings.emissiveIntensity;
+  }
+  if (settings.roughness !== undefined && material.roughness !== undefined) material.roughness = settings.roughness;
+  if (settings.metalness !== undefined && material.metalness !== undefined) material.metalness = settings.metalness;
+  if (settings.opacity !== undefined && material.opacity !== undefined) material.opacity = settings.opacity;
+  if (settings.transparent !== undefined) material.transparent = settings.transparent;
+  if (settings.depthWrite !== undefined) material.depthWrite = settings.depthWrite;
+  material.needsUpdate = true;
 }

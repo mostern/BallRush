@@ -1,7 +1,7 @@
 export const SKINS = Object.freeze([
   {
     id: "snow",
-    label: "Snowball",
+    label: "Classic",
     color: 0xf8fbff,
     accent: 0xff3f7f,
     emissive: 0x78e7ff,

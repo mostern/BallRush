@@ -22,16 +22,53 @@ export class HUD {
     this.runSummary = document.querySelector("#runSummary");
     this.startRunButton = document.querySelector("#startRunButton");
     this.dailyRunButton = document.querySelector("#dailyRunButton");
+    this.levelSelector = document.querySelector("#levelSelector");
     this.skinSelector = document.querySelector("#skinSelector");
   }
 
-  bind({ onStartRun, onDailyRun, onSkinSelect }) {
+  bind({ onStartRun, onDailyRun, onSkinSelect, onLevelSelect }) {
     this.startRunButton.addEventListener("click", onStartRun);
     this.dailyRunButton.addEventListener("click", onDailyRun);
+    this.levelSelector.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-level-id]");
+      if (!button) return;
+      onLevelSelect(button.dataset.levelId);
+    });
     this.skinSelector.addEventListener("click", (event) => {
       const button = event.target.closest("[data-skin-id]");
       if (!button) return;
       onSkinSelect(button.dataset.skinId);
+    });
+  }
+
+  renderLevels(levels, selectedLevel) {
+    this.levelSelector.innerHTML = levels
+      .map(
+        (level) => `
+          <button
+            class="level-button"
+            type="button"
+            data-level-id="${level.id}"
+            title="${level.label}"
+            aria-label="${level.label}"
+            aria-pressed="${level.id === selectedLevel}"
+            style="--level-color: #${toHex(level.ui.color)}; --level-accent: #${toHex(level.ui.accent)}"
+          >
+            <span class="level-swatch"></span>
+            <strong>${level.shortLabel}</strong>
+          </button>
+        `
+      )
+      .join("");
+    this.setSelectedLevel(selectedLevel);
+  }
+
+  setSelectedLevel(selectedLevel) {
+    if (!this.levelSelector) return;
+    this.levelSelector.querySelectorAll("[data-level-id]").forEach((button) => {
+      const active = button.dataset.levelId === selectedLevel;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", String(active));
     });
   }
 
@@ -63,23 +100,26 @@ export class HUD {
     });
   }
 
-  showMenu(bestScore = 0) {
+  showMenu(bestScore = 0, level = null) {
     this.overlay.classList.add("is-visible");
     this.runSummary.innerHTML = `<span>Best score</span><strong>${formatNumber(bestScore)}</strong>`;
     this.startRunButton.textContent = "Start Run";
-    this.dailyRunButton.textContent = "Daily Mountain";
+    this.dailyRunButton.textContent = "Daily Run";
+    if (level) this.setSeedLabel(`${level.label} / ready`);
   }
 
-  showRun(seed, ghostStatus = { active: false }) {
-    this.seedLabel.textContent = ghostStatus.active ? `${seed} / ghost active` : seed;
+  showRun(seed, ghostStatus = { active: false }, level = null) {
+    const seedText = formatSeed(seed, level);
+    this.seedLabel.textContent = ghostStatus.active ? `${seedText} / ghost active` : seedText;
     this.overlay.classList.remove("is-visible");
   }
 
-  showGameOver(reason, snapshot) {
+  showGameOver(reason, snapshot, level = null) {
     this.overlay.classList.add("is-visible");
     this.startRunButton.textContent = "Restart";
-    this.dailyRunButton.textContent = "Daily Mountain";
-    const label = snapshot.newBest ? `New best / ${reason}` : reason;
+    this.dailyRunButton.textContent = "Daily Run";
+    const reasonLabel = level ? `${level.label} / ${reason}` : reason;
+    const label = snapshot.newBest ? `New best / ${reasonLabel}` : reasonLabel;
     this.runSummary.innerHTML = `
       <span>${label}</span>
       <strong>${formatNumber(snapshot.score)}</strong>
@@ -95,6 +135,10 @@ export class HUD {
         <div><dt>Ghost</dt><dd>${this.getGhostLabel(snapshot)}</dd></div>
       </dl>
     `;
+  }
+
+  setSeedLabel(label) {
+    this.seedLabel.textContent = label;
   }
 
   getGhostLabel(snapshot) {
@@ -121,4 +165,13 @@ export class HUD {
     this.avalancheFill.style.transform = `scaleX(${Math.max(0, Math.min(1, avalanche.danger || 0))})`;
     this.avalancheText.textContent = avalanche.active ? `${Math.max(0, Math.floor(avalanche.gap))} m` : "Clear";
   }
+}
+
+function formatSeed(seed, level) {
+  if (!level) return seed;
+  return `${level.label} / ${seed.replace(`${level.seedPrefix}-`, "")}`;
+}
+
+function toHex(value) {
+  return value.toString(16).padStart(6, "0");
 }

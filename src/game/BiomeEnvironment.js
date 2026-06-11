@@ -1,95 +1,26 @@
 import * as THREE from "three";
-
-const THEMES = {
-  snowfield: {
-    label: "Snowfield",
-    sky: 0xbfe8ef,
-    fog: 0xc7eef4,
-    fogDensity: 0.011,
-    hemiSky: 0xeafcff,
-    hemiGround: 0x274760,
-    sun: 0xfff2d0,
-    sunIntensity: 3.1,
-    rim: 0x61f0ff,
-    rimIntensity: 1.1,
-    auroraA: 0x48ffbd,
-    auroraB: 0xff5fa8,
-    auroraOpacity: 0.18
-  },
-  iceCanyon: {
-    label: "Ice Canyon",
-    sky: 0x91d8ed,
-    fog: 0xa9efff,
-    fogDensity: 0.014,
-    hemiSky: 0xd8fbff,
-    hemiGround: 0x1f5672,
-    sun: 0xdff8ff,
-    sunIntensity: 2.8,
-    rim: 0x34dbff,
-    rimIntensity: 1.35,
-    auroraA: 0x64fff3,
-    auroraB: 0x77a7ff,
-    auroraOpacity: 0.2
-  },
-  crystalCave: {
-    label: "Crystal Cave",
-    sky: 0x1b2141,
-    fog: 0x222849,
-    fogDensity: 0.021,
-    hemiSky: 0x65e9ff,
-    hemiGround: 0x16162c,
-    sun: 0x83e9ff,
-    sunIntensity: 1.25,
-    rim: 0xff4fd8,
-    rimIntensity: 2.15,
-    auroraA: 0x34f5ff,
-    auroraB: 0xff4fd8,
-    auroraOpacity: 0.32
-  },
-  auroraRidge: {
-    label: "Aurora Ridge",
-    sky: 0x152c4a,
-    fog: 0x235875,
-    fogDensity: 0.016,
-    hemiSky: 0xb8fff0,
-    hemiGround: 0x0e2238,
-    sun: 0x9fe7ff,
-    sunIntensity: 1.9,
-    rim: 0x6dffae,
-    rimIntensity: 2.6,
-    auroraA: 0x51ff99,
-    auroraB: 0xff71c8,
-    auroraOpacity: 0.46
-  },
-  stormPeak: {
-    label: "Storm Peak",
-    sky: 0x60717c,
-    fog: 0x9fb0b5,
-    fogDensity: 0.032,
-    hemiSky: 0xd8e0e2,
-    hemiGround: 0x2e353b,
-    sun: 0xd5dee2,
-    sunIntensity: 1.35,
-    rim: 0xb9f1ff,
-    rimIntensity: 1.7,
-    auroraA: 0xb6f7ff,
-    auroraB: 0xffffff,
-    auroraOpacity: 0.12
-  }
-};
+import { getLevel } from "./levels.js";
 
 export class BiomeEnvironment {
   constructor(scene, lights, skyRig) {
     this.scene = scene;
     this.lights = lights;
     this.skyRig = skyRig;
-    this.theme = cloneTheme(THEMES.snowfield);
-    this.target = THEMES.snowfield;
+    this.level = getLevel();
+    this.theme = cloneTheme(this.getTheme("snowfield"));
+    this.target = this.getTheme("snowfield");
+    this.applyTheme(this.theme);
+  }
+
+  setLevel(level) {
+    this.level = getLevel(level?.id || level);
+    this.target = this.getTheme("snowfield");
+    this.theme = cloneTheme(this.target);
     this.applyTheme(this.theme);
   }
 
   update(biomeId, dt) {
-    this.target = THEMES[biomeId] || THEMES.snowfield;
+    this.target = this.getTheme(biomeId);
     const blend = 1 - Math.exp(-1.45 * dt);
     this.theme = {
       ...this.theme,
@@ -111,6 +42,10 @@ export class BiomeEnvironment {
 
   getLabel() {
     return this.target.label;
+  }
+
+  getTheme(biomeId) {
+    return this.level.biomes[biomeId] || this.level.biomes.snowfield;
   }
 
   applyTheme(theme) {

@@ -1,6 +1,6 @@
 export class RNG {
   constructor(seed) {
-    this.seed = String(seed || "snowball-rush");
+    this.seed = String(seed || "ball-rush");
     this.state = this.hash(this.seed);
   }
 

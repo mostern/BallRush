@@ -33,12 +33,36 @@ export const CONFIG = Object.freeze({
   avalancheCatchGap: 12,
   avalancheBaseSpeed: 15,
   avalancheDifficultySpeed: 52,
-  storagePrefix: "snowballRush"
+  storagePrefix: "ballRush",
+  legacyStoragePrefix: "snowballRush"
 });
 
 export const STORAGE_KEYS = Object.freeze({
   bestScore: `${CONFIG.storagePrefix}.bestScore`,
   bestDistance: `${CONFIG.storagePrefix}.bestDistance`,
   bestGhost: `${CONFIG.storagePrefix}.bestGhost`,
-  selectedSkin: `${CONFIG.storagePrefix}.selectedSkin`
+  selectedSkin: `${CONFIG.storagePrefix}.selectedSkin`,
+  selectedLevel: `${CONFIG.storagePrefix}.selectedLevel`
 });
+
+export const LEGACY_STORAGE_KEYS = Object.freeze({
+  bestScore: `${CONFIG.legacyStoragePrefix}.bestScore`,
+  bestDistance: `${CONFIG.legacyStoragePrefix}.bestDistance`,
+  bestGhost: `${CONFIG.legacyStoragePrefix}.bestGhost`,
+  selectedSkin: `${CONFIG.legacyStoragePrefix}.selectedSkin`
+});
+
+export function readStorage(key, legacyKey = null) {
+  if (typeof localStorage === "undefined") return null;
+  const value = localStorage.getItem(key);
+  if (value !== null || !legacyKey) return value;
+
+  const legacyValue = localStorage.getItem(legacyKey);
+  if (legacyValue !== null) localStorage.setItem(key, legacyValue);
+  return legacyValue;
+}
+
+export function writeStorage(key, value) {
+  if (typeof localStorage === "undefined") return;
+  localStorage.setItem(key, value);
+}

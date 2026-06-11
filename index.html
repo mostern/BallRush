@@ -7,16 +7,16 @@
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%23f5fbff'/%3E%3Cpath d='M8 42 42 8a28 28 0 0 1 14 28L28 56A28 28 0 0 1 8 42Z' fill='%23ff3f7f'/%3E%3Cpath d='M8 42 42 8a28 28 0 0 0-34 34Z' fill='%2371f2ff'/%3E%3C/svg%3E"
     />
-    <title>Snowball Rush</title>
+    <title>Ball Rush</title>
   </head>
   <body>
-    <main id="app" aria-label="Snowball Rush game">
+    <main id="app" aria-label="Ball Rush game">
       <section class="hud hud-top" aria-live="polite">
         <div class="brand">
           <span class="brand-mark"></span>
           <div>
-            <p>Snowball Rush</p>
-            <span id="seedLabel">daily-seed</span>
+            <p>Ball Rush</p>
+            <span id="seedLabel">summer-ready</span>
           </div>
         </div>
         <div class="stat-grid">
@@ -50,7 +50,7 @@
           </div>
           <div class="avalanche-meter" id="avalancheMeter">
             <div class="meter-label compact">
-              <span>Avalanche</span>
+              <span>Chase</span>
               <strong id="avalancheText">Clear</strong>
             </div>
             <div class="meter-track danger">
@@ -74,13 +74,14 @@
 
       <section class="overlay is-visible" id="overlay" aria-modal="true">
         <div class="overlay-panel">
-          <p class="kicker">Ball. Mountain. Speed. Again.</p>
-          <h1>Snowball Rush</h1>
+          <p class="kicker">Ball. Rush. Flow. Again.</p>
+          <h1>Ball Rush</h1>
           <div class="run-summary" id="runSummary"></div>
+          <div class="level-selector" id="levelSelector" aria-label="Levels"></div>
           <div class="skin-selector" id="skinSelector" aria-label="Ball skins"></div>
           <div class="overlay-actions">
             <button class="primary-button" id="startRunButton" type="button">Start Run</button>
-            <button class="secondary-button" id="dailyRunButton" type="button">Daily Mountain</button>
+            <button class="secondary-button" id="dailyRunButton" type="button">Daily Run</button>
           </div>
         </div>
       </section>
