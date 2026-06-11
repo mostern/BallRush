@@ -130,6 +130,8 @@ export class ChunkManager {
   buildChunkObjects(chunk) {
     chunk.group.name = `chunk-${chunk.index}-${chunk.type}`;
     chunk.group.add(this.createTerrainMesh(chunk));
+    const surfaceOverlay = this.createSurfaceOverlay(chunk);
+    if (surfaceOverlay) chunk.group.add(surfaceOverlay);
     chunk.group.add(this.createShoulders(chunk));
 
     this.generateObstacles(chunk);
@@ -164,6 +166,37 @@ export class ChunkManager {
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
     const mesh = new THREE.Mesh(geometry, this.materials.terrain[chunk.biome] || this.materials.terrain.snowfield);
+    mesh.receiveShadow = true;
+    return mesh;
+  }
+
+  createSurfaceOverlay(chunk) {
+    if (chunk.surface === "snow") return null;
+
+    const steps = 24;
+    const vertices = [];
+    const uvs = [];
+    const indices = [];
+    const surfaceWidthMultiplier = chunk.surface === "boost" ? 0.42 : chunk.surface === "powder" ? 0.82 : 0.94;
+    for (let i = 0; i <= steps; i += 1) {
+      const t = i / steps;
+      const z = lerp(chunk.startZ, chunk.endZ, t);
+      const center = this.centerAt(chunk, t);
+      const width = this.widthAt(chunk, t) * surfaceWidthMultiplier;
+      const y = this.groundY(z) + 0.055;
+      vertices.push(center - width / 2, y, z, center + width / 2, y, z);
+      uvs.push(0, t * 6, 1, t * 6);
+      if (i < steps) {
+        const row = i * 2;
+        indices.push(row, row + 1, row + 2, row + 1, row + 3, row + 2);
+      }
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+    geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    const mesh = new THREE.Mesh(geometry, this.materials.surface[chunk.surface]);
     mesh.receiveShadow = true;
     return mesh;
   }
@@ -441,6 +474,42 @@ export class ChunkManager {
         crystalCave: new THREE.MeshStandardMaterial({ color: 0x95d6f0, roughness: 0.54, flatShading: true }),
         auroraRidge: new THREE.MeshStandardMaterial({ color: 0xdaf7f4, roughness: 0.68, flatShading: true }),
         stormPeak: new THREE.MeshStandardMaterial({ color: 0xc8d2d7, roughness: 0.82, flatShading: true })
+      },
+      surface: {
+        ice: new THREE.MeshStandardMaterial({
+          color: 0x8ef3ff,
+          roughness: 0.18,
+          metalness: 0.08,
+          emissive: 0x1ac7ff,
+          emissiveIntensity: 0.12,
+          transparent: true,
+          opacity: 0.54,
+          depthWrite: false
+        }),
+        powder: new THREE.MeshStandardMaterial({
+          color: 0xffffff,
+          roughness: 0.96,
+          transparent: true,
+          opacity: 0.62,
+          depthWrite: false
+        }),
+        boost: new THREE.MeshStandardMaterial({
+          color: 0xffd166,
+          roughness: 0.44,
+          emissive: 0xff8b2d,
+          emissiveIntensity: 0.34,
+          transparent: true,
+          opacity: 0.76,
+          depthWrite: false
+        }),
+        stone: new THREE.MeshStandardMaterial({
+          color: 0x6d777d,
+          roughness: 0.9,
+          transparent: true,
+          opacity: 0.5,
+          depthWrite: false,
+          flatShading: true
+        })
       },
       valley: {
         snowfield: new THREE.MeshStandardMaterial({ color: 0x8ec4d7, roughness: 0.88, flatShading: true }),

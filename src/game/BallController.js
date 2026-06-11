@@ -45,6 +45,8 @@ export class BallController {
     this.squash = 0;
     this.airborneTime = 0;
     this.baseEmissiveIntensity = 0.05;
+    this.surfaceParticleTimer = 0;
+    this.lastSurface = "snow";
   }
 
   reset(trackInfo) {
@@ -61,6 +63,8 @@ export class BallController {
     this.airborneTime = 0;
     this.group.rotation.set(0, 0, 0);
     this.mesh.material.emissiveIntensity = 0.05;
+    this.surfaceParticleTimer = 0;
+    this.lastSurface = trackInfo?.surface || "snow";
     this.updateMesh(false);
   }
 
@@ -82,13 +86,14 @@ export class BallController {
 
   update(dt, input, difficulty, getTrackInfo, scoreState, effects) {
     const currentTrack = getTrackInfo(this.position.z);
-    const surfaceFriction = this.getSurfaceFriction(currentTrack.surface);
-    const steerPower = scoreState.flowActive ? CONFIG.steeringForce * 1.18 : CONFIG.steeringForce;
+    const surface = this.getSurfaceProfile(currentTrack.surface);
+    const steerPower = (scoreState.flowActive ? CONFIG.steeringForce * 1.18 : CONFIG.steeringForce) * surface.steerMultiplier;
     this.velocityX += input.steer * steerPower * dt;
-    this.velocityX *= Math.pow(surfaceFriction, dt * 60);
+    this.velocityX *= Math.pow(surface.lateralFriction, dt * 60);
 
     this.boostTimer = Math.max(0, this.boostTimer - dt);
     let desiredSpeed = CONFIG.baseSpeed + difficulty.speedBonus + scoreState.runTime * CONFIG.speedIncreasePerSecond;
+    desiredSpeed *= surface.speedMultiplier;
     if (input.boost) desiredSpeed *= 1.16;
     if (input.brake) desiredSpeed *= 0.72;
     if (this.boostTimer > 0) desiredSpeed *= 1.28;
@@ -100,6 +105,8 @@ export class BallController {
       this.forceJump(CONFIG.jumpForce);
       effects.spawnBurst(this.position, 18, 0xffffff, 4, 0.42);
     }
+
+    this.updateSurfaceEffects(dt, currentTrack.surface, effects);
 
     this.position.z -= this.speed * dt;
     this.position.x += this.velocityX * dt;
@@ -127,11 +134,32 @@ export class BallController {
     this.updateMesh(scoreState.flowActive);
   }
 
-  getSurfaceFriction(surface) {
-    if (surface === "ice") return 0.965;
-    if (surface === "powder") return 0.84;
-    if (surface === "stone") return 0.89;
-    return CONFIG.lateralFriction;
+  getSurfaceProfile(surface) {
+    if (surface === "ice") return { lateralFriction: 0.972, speedMultiplier: 1.08, steerMultiplier: 0.82 };
+    if (surface === "powder") return { lateralFriction: 0.78, speedMultiplier: 0.76, steerMultiplier: 0.92 };
+    if (surface === "boost") return { lateralFriction: 0.9, speedMultiplier: 1.22, steerMultiplier: 1.03 };
+    if (surface === "stone") return { lateralFriction: 0.88, speedMultiplier: 0.93, steerMultiplier: 0.84 };
+    return { lateralFriction: CONFIG.lateralFriction, speedMultiplier: 1, steerMultiplier: 1 };
+  }
+
+  updateSurfaceEffects(dt, surface, effects) {
+    if (!this.grounded || surface === "snow") {
+      this.lastSurface = surface;
+      return;
+    }
+
+    this.surfaceParticleTimer -= dt;
+    if (surface !== this.lastSurface) {
+      this.surfaceParticleTimer = 0;
+      this.lastSurface = surface;
+    }
+    if (this.surfaceParticleTimer > 0) return;
+
+    const color = surface === "boost" ? 0xffd166 : surface === "ice" ? 0x71f2ff : surface === "powder" ? 0xffffff : 0x9ca3a6;
+    const count = surface === "boost" ? 16 : 8;
+    const speed = surface === "boost" ? 5.5 : 2.8;
+    effects.spawnBurst(this.position, count, color, speed, 0.28);
+    this.surfaceParticleTimer = surface === "boost" ? 0.055 : 0.12;
   }
 
   forceJump(force) {
