@@ -31,8 +31,8 @@ export class HUD {
     this.dailyRunButton.textContent = "Daily Mountain";
   }
 
-  showRun(seed) {
-    this.seedLabel.textContent = seed;
+  showRun(seed, ghostStatus = { active: false }) {
+    this.seedLabel.textContent = ghostStatus.active ? `${seed} / ghost active` : seed;
     this.overlay.classList.remove("is-visible");
   }
 
@@ -49,8 +49,15 @@ export class HUD {
         <div><dt>Max speed</dt><dd>${formatNumber(snapshot.maxSpeed)}</dd></div>
         <div><dt>Crystals</dt><dd>${formatNumber(snapshot.crystals)}</dd></div>
         <div><dt>Longest combo</dt><dd>${formatNumber(snapshot.longestCombo)}</dd></div>
+        <div><dt>Ghost</dt><dd>${this.getGhostLabel(snapshot)}</dd></div>
       </dl>
     `;
+  }
+
+  getGhostLabel(snapshot) {
+    if (snapshot.ghostSaved) return "Saved";
+    if (snapshot.ghostActive) return "Raced";
+    return "None";
   }
 
   update(snapshot, ball) {

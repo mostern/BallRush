@@ -22,6 +22,7 @@ export const CONFIG = Object.freeze({
   comboWindow: 3.1,
   offTrackGrace: 0.34,
   nearMissRadius: 3.2,
+  ghostSampleInterval: 0.12,
   storagePrefix: "snowballRush"
 });
 

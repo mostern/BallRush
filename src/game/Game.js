@@ -5,6 +5,7 @@ import { CameraController } from "./CameraController.js";
 import { ChunkManager } from "./ChunkManager.js";
 import { CollisionSystem } from "./CollisionSystem.js";
 import { DifficultyManager } from "./DifficultyManager.js";
+import { GhostSystem } from "./GhostSystem.js";
 import { Input } from "./Input.js";
 import { ScoreManager } from "./ScoreManager.js";
 import { AudioSystem } from "./AudioSystem.js";
@@ -42,6 +43,7 @@ export class Game {
     this.collisionSystem = new CollisionSystem();
     this.particles = new ParticleSystem(this.scene);
     this.trail = new Trail(this.scene);
+    this.ghost = new GhostSystem(this.scene);
     this.audio = new AudioSystem();
     this.hud = new HUD();
 
@@ -50,7 +52,7 @@ export class Game {
     this.resetWorld(this.getDailySeed());
 
     this.hud.bind({
-      onStartRun: () => this.startRun(false),
+      onStartRun: () => this.startRun(this.state === "gameover" && this.dailyMode),
       onDailyRun: () => this.startRun(true)
     });
     this.hud.showMenu(this.score.bestScore);
@@ -114,23 +116,28 @@ export class Game {
     this.cameraController.reset(this.ball);
     this.collisionSystem.reset();
     this.trail.reset();
+    this.ghost.reset();
   }
 
   startRun(daily = false) {
     this.audio.resume();
     this.dailyMode = daily;
-    const seed = daily ? this.getDailySeed() : `run-${Date.now().toString(36)}`;
+    const retrySeed = !daily && this.state === "gameover" && this.seed;
+    const seed = daily ? this.getDailySeed() : retrySeed ? this.seed : `run-${Date.now().toString(36)}`;
     this.resetWorld(seed);
     this.score.reset(seed);
+    this.ghost.start(seed);
     this.elapsed = 0;
     this.state = "running";
-    this.hud.showRun(seed);
+    this.hud.showRun(seed, this.ghost.getStatus());
   }
 
   endRun(reason) {
     if (this.state !== "running") return;
     this.state = "gameover";
     const snapshot = this.score.finishRun();
+    snapshot.ghostActive = this.ghost.getStatus().active;
+    snapshot.ghostSaved = this.ghost.finish(snapshot);
     this.hud.showGameOver(reason, snapshot);
   }
 
@@ -157,6 +164,7 @@ export class Game {
     const scoreState = this.score.getSnapshot();
     this.ball.update(dt, this.input, difficulty, (z) => this.chunkManager.getTrackInfo(z), scoreState, this.particles);
     this.score.update(dt, this.ball, difficulty);
+    this.ghost.update(dt, this.ball, this.score.runTime);
     this.chunkManager.updateVisuals(dt, this.elapsed, this.score.flowActive);
     this.collisionSystem.update(
       dt,
