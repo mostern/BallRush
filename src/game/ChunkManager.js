@@ -223,16 +223,30 @@ export class ChunkManager {
       const width = this.widthAt(chunk, t);
       const lane = this.rng.choice([-0.42, -0.26, -0.08, 0.1, 0.28, 0.43]);
       const x = center + lane * width + this.rng.range(-0.8, 0.8);
-      const radius = this.rng.range(0.8, chunk.type === "obstacleField" ? 1.75 : 1.35);
-      const type = this.rng.choice(["rock", "tree", "ice", "spike"]);
+      let radius = this.rng.range(0.8, chunk.type === "obstacleField" ? 1.75 : 1.35);
+      let type = this.rng.choice(["rock", "tree", "ice", "spike"]);
+      const rollerChance = chunk.index > 5 ? Math.min(0.28, (chunk.index - 5) * 0.014) : 0;
+      if (this.rng.chance(rollerChance)) {
+        type = "roller";
+        radius = this.rng.range(1.05, 1.55);
+      }
       const obstacle = {
         type,
         x,
+        baseX: x,
         z,
         radius,
         passed: false,
         cleared: false,
-        breakable: type !== "tree" || radius < 1.15
+        breakable: type === "roller" ? false : type !== "tree" || radius < 1.15,
+        motion:
+          type === "roller"
+            ? {
+                amplitude: Math.min(width * 0.28, this.rng.range(4.5, 8)),
+                speed: this.rng.range(0.8, 1.35),
+                phase: this.rng.range(0, Math.PI * 2)
+              }
+            : null
       };
       obstacle.mesh = this.createObstacleMesh(obstacle, chunk);
       chunk.obstacles.push(obstacle);
@@ -252,6 +266,16 @@ export class ChunkManager {
       trunk.castShadow = true;
       crown.castShadow = true;
       group.add(trunk, crown);
+      mesh = group;
+    } else if (obstacle.type === "roller") {
+      const group = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.IcosahedronGeometry(obstacle.radius, 2), this.materials.roller);
+      const bandA = new THREE.Mesh(new THREE.TorusGeometry(obstacle.radius * 0.78, 0.035, 8, 36), this.materials.rollerBand);
+      const bandB = bandA.clone();
+      bandA.rotation.x = Math.PI / 2;
+      bandB.rotation.y = Math.PI / 2;
+      body.castShadow = true;
+      group.add(body, bandA, bandB);
       mesh = group;
     } else if (obstacle.type === "ice") {
       mesh = new THREE.Mesh(new THREE.BoxGeometry(obstacle.radius * 1.45, obstacle.radius * 1.45, obstacle.radius * 1.45), this.materials.iceBlock);
@@ -348,6 +372,13 @@ export class ChunkManager {
 
   updateVisuals(dt, elapsed, flowActive) {
     for (const chunk of this.chunks) {
+      for (const obstacle of chunk.obstacles) {
+        if (obstacle.cleared || obstacle.type !== "roller") continue;
+        obstacle.x = obstacle.baseX + Math.sin(elapsed * obstacle.motion.speed + obstacle.motion.phase) * obstacle.motion.amplitude;
+        obstacle.mesh.position.x = obstacle.x;
+        obstacle.mesh.rotation.z += dt * obstacle.motion.speed * 2.8;
+        obstacle.mesh.rotation.x += dt * 1.4;
+      }
       for (const collectible of chunk.collectibles) {
         if (collectible.collected) continue;
         collectible.spin += dt * (flowActive ? 4.5 : 2.4);
@@ -422,6 +453,8 @@ export class ChunkManager {
       rock: new THREE.MeshStandardMaterial({ color: 0x596168, roughness: 0.92, flatShading: true }),
       iceBlock: new THREE.MeshStandardMaterial({ color: 0x75e8ff, roughness: 0.28, metalness: 0.06, emissive: 0x1ba6c8, emissiveIntensity: 0.18, flatShading: true }),
       spike: new THREE.MeshStandardMaterial({ color: 0xfd4f76, roughness: 0.36, emissive: 0x601024, emissiveIntensity: 0.25, flatShading: true }),
+      roller: new THREE.MeshStandardMaterial({ color: 0xdff8ff, roughness: 0.62, emissive: 0x72efff, emissiveIntensity: 0.12, flatShading: true }),
+      rollerBand: new THREE.MeshBasicMaterial({ color: 0x4b7280, transparent: true, opacity: 0.5 }),
       trunk: new THREE.MeshStandardMaterial({ color: 0x6d4d35, roughness: 0.86, flatShading: true }),
       pine: new THREE.MeshStandardMaterial({ color: 0x17645f, roughness: 0.74, flatShading: true }),
       ramp: new THREE.MeshStandardMaterial({ color: 0xfff0b0, roughness: 0.54, emissive: 0xff8b2d, emissiveIntensity: 0.18, flatShading: true })

@@ -2,4 +2,8 @@ import "./style.css";
 import { Game } from "./game/Game.js";
 
 const root = document.querySelector("#app");
-new Game(root);
+const game = new Game(root);
+
+if (import.meta.env.DEV) {
+  window.__snowballRush = game;
+}
