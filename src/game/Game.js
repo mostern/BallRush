@@ -11,6 +11,7 @@ import { ScoreManager } from "./ScoreManager.js";
 import { SKINS, getSkin } from "./skins.js";
 import { AudioSystem } from "./AudioSystem.js";
 import { ParticleSystem } from "../effects/Particles.js";
+import { SpeedLines } from "../effects/SpeedLines.js";
 import { Trail } from "../effects/Trail.js";
 import { HUD } from "../ui/HUD.js";
 
@@ -46,6 +47,7 @@ export class Game {
     this.collisionSystem = new CollisionSystem();
     this.particles = new ParticleSystem(this.scene);
     this.trail = new Trail(this.scene);
+    this.speedLines = new SpeedLines(this.scene);
     this.ghost = new GhostSystem(this.scene);
     this.audio = new AudioSystem();
     this.hud = new HUD();
@@ -121,6 +123,7 @@ export class Game {
     this.cameraController.reset(this.ball);
     this.collisionSystem.reset();
     this.trail.reset();
+    this.speedLines.reset();
     this.ghost.reset();
   }
 
@@ -192,6 +195,7 @@ export class Game {
     const track = this.chunkManager.getTrackInfo(this.ball.position.z);
     this.cameraController.update(dt, this.ball, track, this.score.flowActive);
     this.trail.update(dt, this.ball, this.score.flowActive);
+    this.speedLines.update(dt, this.ball, this.score.flowActive);
     this.particles.update(dt);
     this.updateSkyRig();
     this.hud.update(this.score.getSnapshot(), this.ball);
@@ -208,6 +212,7 @@ export class Game {
     this.chunkManager.updateVisuals(dt, this.elapsed, false);
     this.cameraController.update(dt, this.ball, track, false);
     this.trail.update(dt, this.ball, false);
+    this.speedLines.update(dt, this.ball, false);
     this.particles.update(dt);
     this.updateSkyRig();
   }
