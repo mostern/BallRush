@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%23f5fbff'/%3E%3Cpath d='M8 42 42 8a28 28 0 0 1 14 28L28 56A28 28 0 0 1 8 42Z' fill='%23ff3f7f'/%3E%3Cpath d='M8 42 42 8a28 28 0 0 0-34 34Z' fill='%2371f2ff'/%3E%3C/svg%3E"
+    />
+    <title>Snowball Rush</title>
+  </head>
+  <body>
+    <main id="app" aria-label="Snowball Rush game">
+      <section class="hud hud-top" aria-live="polite">
+        <div class="brand">
+          <span class="brand-mark"></span>
+          <div>
+            <p>Snowball Rush</p>
+            <span id="seedLabel">daily-seed</span>
+          </div>
+        </div>
+        <div class="stat-grid">
+          <div class="stat">
+            <span>Score</span>
+            <strong id="scoreValue">0</strong>
+          </div>
+          <div class="stat">
+            <span>Distance</span>
+            <strong id="distanceValue">0 m</strong>
+          </div>
+          <div class="stat">
+            <span>Speed</span>
+            <strong id="speedValue">0</strong>
+          </div>
+          <div class="stat">
+            <span>Best</span>
+            <strong id="bestValue">0</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="hud hud-bottom">
+        <div class="meter-block">
+          <div class="meter-label">
+            <span>Flow</span>
+            <strong id="flowText">0%</strong>
+          </div>
+          <div class="meter-track">
+            <div id="flowFill" class="meter-fill"></div>
+          </div>
+        </div>
+        <div class="combo-chip">
+          <span>Combo</span>
+          <strong id="comboValue">1x</strong>
+        </div>
+        <div class="shield-chip" id="shieldChip">
+          <span>Shield</span>
+          <strong id="shieldValue">0</strong>
+        </div>
+      </section>
+
+      <section class="overlay is-visible" id="overlay" aria-modal="true">
+        <div class="overlay-panel">
+          <p class="kicker">Ball. Mountain. Speed. Again.</p>
+          <h1>Snowball Rush</h1>
+          <div class="run-summary" id="runSummary"></div>
+          <div class="overlay-actions">
+            <button class="primary-button" id="startRunButton" type="button">Start Run</button>
+            <button class="secondary-button" id="dailyRunButton" type="button">Daily Mountain</button>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
