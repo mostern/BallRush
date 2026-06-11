@@ -10,6 +10,9 @@ export class HUD {
     this.bestValue = document.querySelector("#bestValue");
     this.flowText = document.querySelector("#flowText");
     this.flowFill = document.querySelector("#flowFill");
+    this.avalancheMeter = document.querySelector("#avalancheMeter");
+    this.avalancheText = document.querySelector("#avalancheText");
+    this.avalancheFill = document.querySelector("#avalancheFill");
     this.comboValue = document.querySelector("#comboValue");
     this.shieldChip = document.querySelector("#shieldChip");
     this.shieldValue = document.querySelector("#shieldValue");
@@ -74,7 +77,7 @@ export class HUD {
     this.overlay.classList.add("is-visible");
     this.startRunButton.textContent = "Restart";
     this.dailyRunButton.textContent = "Daily Mountain";
-    const label = snapshot.newBest ? "New best" : reason;
+    const label = snapshot.newBest ? `New best / ${reason}` : reason;
     this.runSummary.innerHTML = `
       <span>${label}</span>
       <strong>${formatNumber(snapshot.score)}</strong>
@@ -94,7 +97,7 @@ export class HUD {
     return "None";
   }
 
-  update(snapshot, ball) {
+  update(snapshot, ball, avalanche = { active: false, danger: 0, gap: 0 }) {
     this.scoreValue.textContent = formatNumber(snapshot.score);
     this.distanceValue.textContent = `${formatNumber(snapshot.distance)} m`;
     this.speedValue.textContent = String(Math.floor(ball.speed));
@@ -106,5 +109,8 @@ export class HUD {
     this.comboValue.textContent = `${snapshot.multiplier}x`;
     this.shieldValue.textContent = String(ball.shields);
     this.shieldChip.classList.toggle("is-active", ball.shields > 0);
+    this.avalancheMeter.classList.toggle("is-active", avalanche.active);
+    this.avalancheFill.style.transform = `scaleX(${Math.max(0, Math.min(1, avalanche.danger || 0))})`;
+    this.avalancheText.textContent = avalanche.active ? `${Math.max(0, Math.floor(avalanche.gap))} m` : "Clear";
   }
 }

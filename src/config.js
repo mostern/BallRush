@@ -23,6 +23,13 @@ export const CONFIG = Object.freeze({
   offTrackGrace: 0.34,
   nearMissRadius: 3.2,
   ghostSampleInterval: 0.12,
+  avalancheStartTime: 42,
+  avalancheStartDistance: 900,
+  avalancheStartGap: 92,
+  avalancheMaxGap: 118,
+  avalancheCatchGap: 12,
+  avalancheBaseSpeed: 15,
+  avalancheDifficultySpeed: 52,
   storagePrefix: "snowballRush"
 });
 

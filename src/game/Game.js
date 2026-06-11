@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { CONFIG, STORAGE_KEYS } from "../config.js";
+import { AvalancheSystem } from "./AvalancheSystem.js";
 import { BallController } from "./BallController.js";
 import { BiomeEnvironment } from "./BiomeEnvironment.js";
 import { CameraController } from "./CameraController.js";
@@ -49,6 +50,7 @@ export class Game {
     this.particles = new ParticleSystem(this.scene);
     this.trail = new Trail(this.scene);
     this.speedLines = new SpeedLines(this.scene);
+    this.avalanche = new AvalancheSystem(this.scene);
     this.ghost = new GhostSystem(this.scene);
     this.audio = new AudioSystem();
     this.hud = new HUD();
@@ -128,6 +130,7 @@ export class Game {
     this.collisionSystem.reset();
     this.trail.reset();
     this.speedLines.reset();
+    this.avalanche.reset();
     this.ghost.reset();
   }
 
@@ -185,6 +188,23 @@ export class Game {
     this.score.update(dt, this.ball, difficulty);
     this.ghost.update(dt, this.ball, this.score.runTime);
     this.chunkManager.updateVisuals(dt, this.elapsed, this.score.flowActive);
+    if (
+      this.avalanche.update(
+        dt,
+        this.ball,
+        difficulty,
+        this.score.runTime,
+        (z) => this.chunkManager.getTrackInfo(z),
+        this.particles,
+        this.cameraController
+      )
+    ) {
+      this.particles.spawnBurst(this.ball.position, 100, 0xf3fbff, 10, 0.85);
+      this.cameraController.addShake(1.1);
+      this.audio.crash();
+      this.endRun("Avalanche");
+      return;
+    }
     this.collisionSystem.update(
       dt,
       this.ball,
@@ -203,7 +223,7 @@ export class Game {
     this.speedLines.update(dt, this.ball, this.score.flowActive);
     this.particles.update(dt);
     this.updateSkyRig();
-    this.hud.update(this.score.getSnapshot(), this.ball);
+    this.hud.update(this.score.getSnapshot(), this.ball, this.avalanche.getStatus());
   }
 
   updateAttract(dt) {
@@ -221,6 +241,7 @@ export class Game {
     this.speedLines.update(dt, this.ball, false);
     this.particles.update(dt);
     this.updateSkyRig();
+    this.hud.update(this.score.getSnapshot(), this.ball, this.avalanche.getStatus());
   }
 
   updateSkyRig() {

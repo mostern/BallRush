@@ -175,6 +175,10 @@ canvas {
   background: rgba(255, 255, 255, 0.2);
 }
 
+.meter-track.danger {
+  height: 8px;
+}
+
 .meter-fill {
   width: 100%;
   height: 100%;
@@ -183,6 +187,34 @@ canvas {
   background: linear-gradient(90deg, var(--ice), var(--green));
   box-shadow: 0 0 22px rgba(113, 242, 255, 0.7);
   transition: transform 0.12s ease, background 0.18s ease;
+}
+
+.avalanche-meter {
+  display: none;
+  margin-top: 10px;
+}
+
+.avalanche-meter.is-active {
+  display: block;
+}
+
+.meter-label.compact {
+  margin-bottom: 6px;
+}
+
+.meter-label.compact span,
+.meter-label.compact strong {
+  font-size: 0.68rem;
+}
+
+.avalanche-fill {
+  width: 100%;
+  height: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  background: linear-gradient(90deg, #ffffff, #ffd166, #ff4c6d);
+  box-shadow: 0 0 20px rgba(255, 76, 109, 0.58);
+  transition: transform 0.12s ease;
 }
 
 .meter-fill.is-hot {
