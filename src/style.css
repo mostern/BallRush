@@ -279,6 +279,8 @@ canvas {
 
 .overlay-panel {
   width: min(520px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
   padding: clamp(22px, 5vw, 36px);
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 8px;

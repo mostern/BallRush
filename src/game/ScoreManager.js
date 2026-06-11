@@ -3,8 +3,8 @@ import { clamp } from "./math.js";
 
 export class ScoreManager {
   constructor() {
-    this.bestScore = Number(localStorage.getItem(STORAGE_KEYS.bestScore) || 0);
-    this.bestDistance = Number(localStorage.getItem(STORAGE_KEYS.bestDistance) || 0);
+    this.bestScore = readNumber(STORAGE_KEYS.bestScore);
+    this.bestDistance = readNumber(STORAGE_KEYS.bestDistance);
     this.reset("daily");
   }
 
@@ -23,6 +23,8 @@ export class ScoreManager {
     this.flowTimer = 0;
     this.nearMisses = 0;
     this.airtime = 0;
+    this.landings = 0;
+    this.perfectLandings = 0;
     this.checkpoints = 0;
     this.checkpointStreak = 0;
     this.longestCheckpointStreak = 0;
@@ -96,6 +98,27 @@ export class ScoreManager {
     this.addFlow(5);
   }
 
+  landing(event) {
+    if (!event || event.airtime < 0.32) return { scored: false, perfect: false };
+
+    this.landings += 1;
+    const airtimeScore = Math.floor((90 + event.airtime * 180) * this.multiplier);
+    this.score += airtimeScore;
+    this.addFlow(6 + Math.min(18, event.airtime * 5));
+
+    if (event.perfect) {
+      this.perfectLandings += 1;
+      this.combo += 2;
+      this.longestCombo = Math.max(this.longestCombo, this.combo);
+      this.comboTimer = CONFIG.comboWindow;
+      this.multiplier = clamp(1 + Math.floor(this.combo / 8), 1, 5);
+      this.score += 240 * this.multiplier;
+      this.addFlow(16);
+    }
+
+    return { scored: true, perfect: event.perfect, points: airtimeScore };
+  }
+
   checkpoint() {
     this.checkpoints += 1;
     this.checkpointStreak += 1;
@@ -116,11 +139,11 @@ export class ScoreManager {
     this.newBest = this.score > this.bestScore;
     if (this.newBest) {
       this.bestScore = Math.floor(this.score);
-      localStorage.setItem(STORAGE_KEYS.bestScore, String(this.bestScore));
+      writeValue(STORAGE_KEYS.bestScore, String(this.bestScore));
     }
     if (this.distance > this.bestDistance) {
       this.bestDistance = Math.floor(this.distance);
-      localStorage.setItem(STORAGE_KEYS.bestDistance, String(this.bestDistance));
+      writeValue(STORAGE_KEYS.bestDistance, String(this.bestDistance));
     }
     return this.getSnapshot();
   }
@@ -140,6 +163,8 @@ export class ScoreManager {
       flowTimer: this.flowTimer,
       nearMisses: this.nearMisses,
       airtime: this.airtime,
+      landings: this.landings,
+      perfectLandings: this.perfectLandings,
       checkpoints: this.checkpoints,
       checkpointStreak: this.checkpointStreak,
       longestCheckpointStreak: this.longestCheckpointStreak,
@@ -149,4 +174,14 @@ export class ScoreManager {
       runTime: this.runTime
     };
   }
+}
+
+function readNumber(key) {
+  if (typeof localStorage === "undefined") return 0;
+  return Number(localStorage.getItem(key) || 0);
+}
+
+function writeValue(key, value) {
+  if (typeof localStorage === "undefined") return;
+  localStorage.setItem(key, value);
 }

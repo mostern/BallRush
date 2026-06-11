@@ -57,6 +57,7 @@ export class BallController {
     this.baseEmissiveIntensity = 0.05;
     this.surfaceParticleTimer = 0;
     this.lastSurface = "snow";
+    this.lastLanding = null;
   }
 
   reset(trackInfo) {
@@ -76,6 +77,7 @@ export class BallController {
     this.mesh.material.emissiveIntensity = 0.05;
     this.surfaceParticleTimer = 0;
     this.lastSurface = trackInfo?.surface || "snow";
+    this.lastLanding = null;
     this.updateMesh(false);
   }
 
@@ -96,6 +98,7 @@ export class BallController {
   }
 
   update(dt, input, difficulty, getTrackInfo, scoreState, effects) {
+    this.lastLanding = null;
     const currentTrack = getTrackInfo(this.position.z);
     const surface = this.getSurfaceProfile(currentTrack.surface);
     const steerPower = (scoreState.flowActive ? CONFIG.steeringForce * 1.18 : CONFIG.steeringForce) * surface.steerMultiplier;
@@ -129,6 +132,13 @@ export class BallController {
     const groundY = nextTrack.groundY + this.radius;
     if (this.position.y <= groundY) {
       if (!this.grounded && this.velocityY < -5) {
+        const impact = Math.abs(this.velocityY);
+        this.lastLanding = {
+          airtime: this.airborneTime,
+          impact,
+          lateralSpeed: Math.abs(this.velocityX),
+          perfect: this.airborneTime >= 0.38 && Math.abs(this.velocityX) < 7.2 && impact < 28
+        };
         this.squash = clamp(Math.abs(this.velocityY) / 26, 0.15, 0.45);
         effects.spawnBurst(this.position, 26, 0xdff8ff, 5.8, 0.55);
       }

@@ -188,6 +188,12 @@ export class Game {
     this.chunkManager.update(this.ball.position.z, (distance) => this.difficultyManager.getDifficultyForDistance(distance));
     const scoreState = this.score.getSnapshot();
     this.ball.update(dt, this.input, difficulty, (z) => this.chunkManager.getTrackInfo(z), scoreState, this.particles);
+    const landing = this.score.landing(this.ball.lastLanding);
+    if (landing.perfect) {
+      this.particles.spawnBurst(this.ball.position, 40, 0xffd166, 6.2, 0.55);
+      this.cameraController.addShake(0.18);
+      this.audio.collect(true);
+    }
     this.score.update(dt, this.ball, difficulty);
     this.ghost.update(dt, this.ball, this.score.runTime);
     this.chunkManager.updateVisuals(dt, this.elapsed, this.score.flowActive);
