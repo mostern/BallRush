@@ -86,6 +86,8 @@ export class HUD {
         <div><dt>Max speed</dt><dd>${formatNumber(snapshot.maxSpeed)}</dd></div>
         <div><dt>Crystals</dt><dd>${formatNumber(snapshot.crystals)}</dd></div>
         <div><dt>Longest combo</dt><dd>${formatNumber(snapshot.longestCombo)}</dd></div>
+        <div><dt>Gates</dt><dd>${formatNumber(snapshot.checkpoints)}</dd></div>
+        <div><dt>Gate streak</dt><dd>${formatNumber(snapshot.longestCheckpointStreak)}</dd></div>
         <div><dt>Ghost</dt><dd>${this.getGhostLabel(snapshot)}</dd></div>
       </dl>
     `;

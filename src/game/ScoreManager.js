@@ -23,6 +23,9 @@ export class ScoreManager {
     this.flowTimer = 0;
     this.nearMisses = 0;
     this.airtime = 0;
+    this.checkpoints = 0;
+    this.checkpointStreak = 0;
+    this.longestCheckpointStreak = 0;
     this.runTime = 0;
     this.newBest = false;
   }
@@ -93,6 +96,22 @@ export class ScoreManager {
     this.addFlow(5);
   }
 
+  checkpoint() {
+    this.checkpoints += 1;
+    this.checkpointStreak += 1;
+    this.longestCheckpointStreak = Math.max(this.longestCheckpointStreak, this.checkpointStreak);
+    this.combo += 2;
+    this.longestCombo = Math.max(this.longestCombo, this.combo);
+    this.comboTimer = CONFIG.comboWindow;
+    this.multiplier = clamp(1 + Math.floor(this.combo / 8), 1, 5);
+    this.score += (160 + this.checkpointStreak * 45) * this.multiplier;
+    this.addFlow(10 + Math.min(12, this.checkpointStreak * 1.5));
+  }
+
+  missCheckpoint() {
+    this.checkpointStreak = 0;
+  }
+
   finishRun() {
     this.newBest = this.score > this.bestScore;
     if (this.newBest) {
@@ -121,6 +140,9 @@ export class ScoreManager {
       flowTimer: this.flowTimer,
       nearMisses: this.nearMisses,
       airtime: this.airtime,
+      checkpoints: this.checkpoints,
+      checkpointStreak: this.checkpointStreak,
+      longestCheckpointStreak: this.longestCheckpointStreak,
       bestScore: Math.floor(this.bestScore),
       bestDistance: Math.floor(this.bestDistance),
       newBest: this.newBest,

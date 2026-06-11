@@ -97,6 +97,7 @@ export class ChunkManager {
       group: new THREE.Group(),
       obstacles: [],
       collectibles: [],
+      gates: [],
       ramps: []
     };
   }
@@ -136,6 +137,7 @@ export class ChunkManager {
 
     this.generateObstacles(chunk);
     this.generateCollectibles(chunk);
+    this.generateGates(chunk);
     if (chunk.type === "jumpRamp") this.generateRamp(chunk);
 
     this.scene.add(chunk.group);
@@ -347,6 +349,49 @@ export class ChunkManager {
     }
   }
 
+  generateGates(chunk) {
+    if (chunk.index < 3 || chunk.type === "jumpRamp") return;
+    const chance = chunk.type === "narrowPath" ? 0.54 : chunk.type === "crystalLine" ? 0.48 : 0.34;
+    if (!this.rng.chance(chance)) return;
+
+    const t = this.rng.range(0.28, 0.72);
+    const z = lerp(chunk.startZ, chunk.endZ, t);
+    const center = this.centerAt(chunk, t);
+    const width = Math.min(this.widthAt(chunk, t) * this.rng.range(0.42, 0.62), 15);
+    const gate = {
+      x: center,
+      z,
+      width,
+      passed: false,
+      missed: false
+    };
+    gate.mesh = this.createGateMesh(gate);
+    chunk.gates.push(gate);
+    chunk.group.add(gate.mesh);
+  }
+
+  createGateMesh(gate) {
+    const y = this.groundY(gate.z);
+    const group = new THREE.Group();
+    const poleGeometry = new THREE.CylinderGeometry(0.08, 0.1, 4.4, 8);
+    const leftPole = new THREE.Mesh(poleGeometry, this.materials.gatePole);
+    const rightPole = leftPole.clone();
+    leftPole.position.set(-gate.width / 2, 2.1, 0);
+    rightPole.position.set(gate.width / 2, 2.1, 0);
+
+    const topBar = new THREE.Mesh(new THREE.BoxGeometry(gate.width + 0.35, 0.16, 0.16), this.materials.gatePole);
+    topBar.position.set(0, 4.25, 0);
+
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1, 0.035, 8, 64), this.materials.gateRing);
+    ring.position.y = 2.35;
+    ring.scale.set(gate.width * 0.46, 1.55, 1);
+
+    group.add(leftPole, rightPole, topBar, ring);
+    group.position.set(gate.x, y + 0.08, gate.z);
+    group.userData.entity = gate;
+    return group;
+  }
+
   createCollectibleMesh(collectible) {
     const colors = {
       crystal: [0x55ecff, 0x1ac7ff],
@@ -411,6 +456,13 @@ export class ChunkManager {
         obstacle.mesh.position.x = obstacle.x;
         obstacle.mesh.rotation.z += dt * obstacle.motion.speed * 2.8;
         obstacle.mesh.rotation.x += dt * 1.4;
+      }
+      for (const gate of chunk.gates) {
+        if (gate.passed || gate.missed) continue;
+        const pulse = 0.7 + Math.sin(elapsed * 5 + gate.z) * 0.18;
+        gate.mesh.children.forEach((child) => {
+          if (child.material?.emissiveIntensity !== undefined) child.material.emissiveIntensity = pulse;
+        });
       }
       for (const collectible of chunk.collectibles) {
         if (collectible.collected) continue;
@@ -524,6 +576,16 @@ export class ChunkManager {
       spike: new THREE.MeshStandardMaterial({ color: 0xfd4f76, roughness: 0.36, emissive: 0x601024, emissiveIntensity: 0.25, flatShading: true }),
       roller: new THREE.MeshStandardMaterial({ color: 0xdff8ff, roughness: 0.62, emissive: 0x72efff, emissiveIntensity: 0.12, flatShading: true }),
       rollerBand: new THREE.MeshBasicMaterial({ color: 0x4b7280, transparent: true, opacity: 0.5 }),
+      gatePole: new THREE.MeshStandardMaterial({ color: 0x102a34, roughness: 0.5, emissive: 0x55ecff, emissiveIntensity: 0.18 }),
+      gateRing: new THREE.MeshStandardMaterial({
+        color: 0x55ecff,
+        roughness: 0.24,
+        emissive: 0x55ecff,
+        emissiveIntensity: 0.75,
+        transparent: true,
+        opacity: 0.82,
+        depthWrite: false
+      }),
       trunk: new THREE.MeshStandardMaterial({ color: 0x6d4d35, roughness: 0.86, flatShading: true }),
       pine: new THREE.MeshStandardMaterial({ color: 0x17645f, roughness: 0.74, flatShading: true }),
       ramp: new THREE.MeshStandardMaterial({ color: 0xfff0b0, roughness: 0.54, emissive: 0xff8b2d, emissiveIntensity: 0.18, flatShading: true })

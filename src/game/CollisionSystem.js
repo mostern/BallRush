@@ -36,6 +36,7 @@ export class CollisionSystem {
 
     for (const chunk of chunkManager.getNearbyChunks(ball.position.z)) {
       this.handleRamps(dt, ball, chunk, effects, audio);
+      this.handleGates(dt, ball, chunk, score, effects, audio);
       this.handleCollectibles(ball, chunk, score, effects, audio);
       if (this.handleObstacles(ball, chunk, score, effects, camera, audio, endRun)) return;
     }
@@ -79,6 +80,29 @@ export class CollisionSystem {
           boost: 0xff6b35
         };
         effects.spawnBurst(collectible.mesh.position, collectible.type === "gold" ? 36 : 22, colors[collectible.type] || 0x55ecff, 4.8, 0.55);
+      }
+    }
+  }
+
+  handleGates(dt, ball, chunk, score, effects, audio) {
+    for (const gate of chunk.gates) {
+      if (gate.passed || gate.missed) continue;
+      const crossingWindow = Math.max(1.2, ball.speed * dt + 0.8);
+      if (ball.position.z > gate.z + crossingWindow) continue;
+      if (ball.position.z < gate.z - crossingWindow) {
+        gate.missed = true;
+        gate.mesh.visible = false;
+        score.missCheckpoint();
+        continue;
+      }
+
+      const dx = Math.abs(ball.position.x - gate.x);
+      if (dx <= gate.width / 2) {
+        gate.passed = true;
+        gate.mesh.visible = false;
+        score.checkpoint();
+        effects.spawnBurst(new THREE.Vector3(gate.x, gate.mesh.position.y + 2.4, gate.z), 42, 0x55ecff, 5.8, 0.58);
+        audio.collect(true);
       }
     }
   }
