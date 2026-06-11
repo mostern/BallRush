@@ -37,7 +37,7 @@ export class CollisionSystem {
     for (const chunk of chunkManager.getNearbyChunks(ball.position.z)) {
       this.handleRamps(dt, ball, chunk, effects, audio);
       this.handleGates(dt, ball, chunk, score, effects, audio);
-      this.handleCollectibles(ball, chunk, score, effects, audio);
+      this.handleCollectibles(dt, ball, chunk, score, effects, audio);
       if (this.handleObstacles(ball, chunk, score, effects, camera, audio, endRun)) return;
     }
   }
@@ -55,9 +55,10 @@ export class CollisionSystem {
     }
   }
 
-  handleCollectibles(ball, chunk, score, effects, audio) {
+  handleCollectibles(dt, ball, chunk, score, effects, audio) {
     for (const collectible of chunk.collectibles) {
       if (collectible.collected) continue;
+      this.applyMagnet(dt, ball, collectible);
       const distance = Math.hypot(ball.position.x - collectible.x, ball.position.y - collectible.mesh.position.y, ball.position.z - collectible.z);
       if (distance < ball.radius + 0.9) {
         collectible.collected = true;
@@ -70,6 +71,7 @@ export class CollisionSystem {
           ball.activateBoost();
           audio.jump();
         } else {
+          if (collectible.type === "gold") ball.activateMagnet();
           audio.collect(collectible.type === "gold");
         }
         const colors = {
@@ -82,6 +84,22 @@ export class CollisionSystem {
         effects.spawnBurst(collectible.mesh.position, collectible.type === "gold" ? 36 : 22, colors[collectible.type] || 0x55ecff, 4.8, 0.55);
       }
     }
+  }
+
+  applyMagnet(dt, ball, collectible) {
+    if (ball.magnetTimer <= 0) return;
+    const dx = ball.position.x - collectible.x;
+    const dy = ball.position.y - collectible.mesh.position.y;
+    const dz = ball.position.z - collectible.z;
+    const distance = Math.hypot(dx, dy, dz);
+    if (distance > CONFIG.magnetRadius || distance < 0.001) return;
+
+    const pull = (1 - distance / CONFIG.magnetRadius) * CONFIG.magnetPullStrength * dt;
+    collectible.x += (dx / distance) * pull;
+    collectible.z += (dz / distance) * pull;
+    collectible.mesh.position.x = collectible.x;
+    collectible.mesh.position.z = collectible.z;
+    collectible.mesh.position.y += (dy / distance) * pull * 0.35;
   }
 
   handleGates(dt, ball, chunk, score, effects, audio) {

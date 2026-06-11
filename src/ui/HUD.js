@@ -16,6 +16,8 @@ export class HUD {
     this.comboValue = document.querySelector("#comboValue");
     this.shieldChip = document.querySelector("#shieldChip");
     this.shieldValue = document.querySelector("#shieldValue");
+    this.magnetChip = document.querySelector("#magnetChip");
+    this.magnetValue = document.querySelector("#magnetValue");
     this.overlay = document.querySelector("#overlay");
     this.runSummary = document.querySelector("#runSummary");
     this.startRunButton = document.querySelector("#startRunButton");
@@ -111,6 +113,8 @@ export class HUD {
     this.comboValue.textContent = `${snapshot.multiplier}x`;
     this.shieldValue.textContent = String(ball.shields);
     this.shieldChip.classList.toggle("is-active", ball.shields > 0);
+    this.magnetValue.textContent = ball.magnetTimer > 0 ? ball.magnetTimer.toFixed(1) : "0.0";
+    this.magnetChip.classList.toggle("is-active", ball.magnetTimer > 0);
     this.avalancheMeter.classList.toggle("is-active", avalanche.active);
     this.avalancheFill.style.transform = `scaleX(${Math.max(0, Math.min(1, avalanche.danger || 0))})`;
     this.avalancheText.textContent = avalanche.active ? `${Math.max(0, Math.floor(avalanche.gap))} m` : "Clear";

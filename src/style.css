@@ -111,6 +111,7 @@ canvas {
 .stat,
 .combo-chip,
 .shield-chip,
+.magnet-chip,
 .meter-block {
   border: 1px solid var(--line);
   background: var(--panel);
@@ -127,6 +128,7 @@ canvas {
 .stat span,
 .combo-chip span,
 .shield-chip span,
+.magnet-chip span,
 .meter-label span {
   display: block;
   color: rgba(255, 255, 255, 0.68);
@@ -145,7 +147,7 @@ canvas {
 .hud-bottom {
   bottom: clamp(14px, 3vw, 30px);
   display: grid;
-  grid-template-columns: minmax(190px, 1fr) auto auto;
+  grid-template-columns: minmax(190px, 1fr) auto auto auto;
   align-items: end;
   gap: 10px;
 }
@@ -223,7 +225,8 @@ canvas {
 }
 
 .combo-chip,
-.shield-chip {
+.shield-chip,
+.magnet-chip {
   width: 98px;
   min-height: 58px;
   padding: 10px 12px;
@@ -231,20 +234,28 @@ canvas {
 }
 
 .combo-chip strong,
-.shield-chip strong {
+.shield-chip strong,
+.magnet-chip strong {
   display: block;
   margin-top: 3px;
   font-size: 1.35rem;
 }
 
-.shield-chip {
+.shield-chip,
+.magnet-chip {
   opacity: 0.56;
 }
 
-.shield-chip.is-active {
+.shield-chip.is-active,
+.magnet-chip.is-active {
   opacity: 1;
   border-color: rgba(121, 255, 152, 0.68);
   box-shadow: 0 0 24px rgba(121, 255, 152, 0.24);
+}
+
+.magnet-chip.is-active {
+  border-color: rgba(113, 242, 255, 0.72);
+  box-shadow: 0 0 24px rgba(113, 242, 255, 0.28);
 }
 
 .overlay {
@@ -437,11 +448,12 @@ h1 {
   }
 
   .hud-bottom {
-    grid-template-columns: 1fr 82px 82px;
+    grid-template-columns: 1fr 82px 82px 82px;
   }
 
   .combo-chip,
-  .shield-chip {
+  .shield-chip,
+  .magnet-chip {
     width: auto;
   }
 
@@ -475,7 +487,8 @@ h1 {
     grid-template-columns: 1fr 1fr;
     grid-template-areas:
       "meter meter"
-      "combo shield";
+      "combo shield"
+      "magnet magnet";
     gap: 7px;
   }
 
@@ -492,9 +505,14 @@ h1 {
     grid-area: shield;
   }
 
+  .magnet-chip {
+    grid-area: magnet;
+  }
+
   .meter-block,
   .combo-chip,
-  .shield-chip {
+  .shield-chip,
+  .magnet-chip {
     padding: 8px;
   }
 

@@ -31,7 +31,16 @@ export class BallController {
     const stripeB = stripeA.clone();
     stripeA.rotation.x = Math.PI / 2;
     stripeB.rotation.y = Math.PI / 2;
-    this.group.add(this.mesh, stripeA, stripeB);
+    this.magnetRingMaterial = new THREE.MeshBasicMaterial({
+      color: 0x79ff98,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false
+    });
+    this.magnetRing = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.026, 8, 72), this.magnetRingMaterial);
+    this.magnetRing.rotation.x = Math.PI / 2;
+    this.magnetRing.visible = false;
+    this.group.add(this.mesh, stripeA, stripeB, this.magnetRing);
     scene.add(this.group);
 
     this.position = new THREE.Vector3();
@@ -41,6 +50,7 @@ export class BallController {
     this.distance = 0;
     this.grounded = true;
     this.boostTimer = 0;
+    this.magnetTimer = 0;
     this.shields = 0;
     this.squash = 0;
     this.airborneTime = 0;
@@ -58,6 +68,7 @@ export class BallController {
     this.distance = 0;
     this.grounded = true;
     this.boostTimer = 0;
+    this.magnetTimer = 0;
     this.shields = 0;
     this.squash = 0;
     this.airborneTime = 0;
@@ -92,6 +103,7 @@ export class BallController {
     this.velocityX *= Math.pow(surface.lateralFriction, dt * 60);
 
     this.boostTimer = Math.max(0, this.boostTimer - dt);
+    this.magnetTimer = Math.max(0, this.magnetTimer - dt);
     let desiredSpeed = CONFIG.baseSpeed + difficulty.speedBonus + scoreState.runTime * CONFIG.speedIncreasePerSecond;
     desiredSpeed *= surface.speedMultiplier;
     if (input.boost) desiredSpeed *= 1.16;
@@ -171,6 +183,11 @@ export class BallController {
     this.boostTimer = Math.max(this.boostTimer, duration);
   }
 
+  activateMagnet(duration = CONFIG.magnetDuration) {
+    this.magnetTimer = Math.max(this.magnetTimer, duration);
+    this.magnetRing.visible = true;
+  }
+
   addShield() {
     this.shields += 1;
   }
@@ -193,5 +210,14 @@ export class BallController {
       : this.boostTimer > 0
         ? Math.max(0.22, this.baseEmissiveIntensity)
         : this.baseEmissiveIntensity;
+    this.magnetRing.visible = this.magnetTimer > 0;
+    if (this.magnetTimer > 0) {
+      const pulse = 0.45 + Math.sin(performance.now() * 0.012) * 0.18;
+      this.magnetRing.scale.setScalar(1 + Math.sin(performance.now() * 0.008) * 0.08);
+      this.magnetRing.rotation.z += 0.025;
+      this.magnetRingMaterial.opacity = pulse;
+    } else {
+      this.magnetRingMaterial.opacity = 0;
+    }
   }
 }
