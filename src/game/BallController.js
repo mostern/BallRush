@@ -1,31 +1,33 @@
 import * as THREE from "three";
 import { CONFIG } from "../config.js";
 import { clamp, damp } from "./math.js";
+import { getSkin } from "./skins.js";
 
 export class BallController {
   constructor(scene) {
     this.radius = CONFIG.ballRadius;
     this.group = new THREE.Group();
+    this.coreMaterial = new THREE.MeshStandardMaterial({
+      color: 0xf8fbff,
+      roughness: 0.42,
+      metalness: 0.05,
+      emissive: 0x78e7ff,
+      emissiveIntensity: 0.05
+    });
     this.mesh = new THREE.Mesh(
       new THREE.IcosahedronGeometry(this.radius, 4),
-      new THREE.MeshStandardMaterial({
-        color: 0xf8fbff,
-        roughness: 0.42,
-        metalness: 0.05,
-        emissive: 0x78e7ff,
-        emissiveIntensity: 0.05
-      })
+      this.coreMaterial
     );
     this.mesh.castShadow = true;
     this.mesh.receiveShadow = true;
 
-    const stripeMaterial = new THREE.MeshStandardMaterial({
+    this.stripeMaterial = new THREE.MeshStandardMaterial({
       color: 0xff3f7f,
       roughness: 0.3,
       emissive: 0xff2d75,
       emissiveIntensity: 0.12
     });
-    const stripeA = new THREE.Mesh(new THREE.TorusGeometry(0.76, 0.035, 8, 48), stripeMaterial);
+    const stripeA = new THREE.Mesh(new THREE.TorusGeometry(0.76, 0.035, 8, 48), this.stripeMaterial);
     const stripeB = stripeA.clone();
     stripeA.rotation.x = Math.PI / 2;
     stripeB.rotation.y = Math.PI / 2;
@@ -42,6 +44,7 @@ export class BallController {
     this.shields = 0;
     this.squash = 0;
     this.airborneTime = 0;
+    this.baseEmissiveIntensity = 0.05;
   }
 
   reset(trackInfo) {
@@ -59,6 +62,22 @@ export class BallController {
     this.group.rotation.set(0, 0, 0);
     this.mesh.material.emissiveIntensity = 0.05;
     this.updateMesh(false);
+  }
+
+  applySkin(id) {
+    const skin = getSkin(id);
+    this.skinId = skin.id;
+    this.baseEmissiveIntensity = skin.emissiveIntensity;
+    this.coreMaterial.color.setHex(skin.color);
+    this.coreMaterial.emissive.setHex(skin.emissive);
+    this.coreMaterial.emissiveIntensity = skin.emissiveIntensity;
+    this.coreMaterial.roughness = skin.roughness;
+    this.coreMaterial.metalness = skin.metalness;
+    this.coreMaterial.opacity = skin.opacity;
+    this.coreMaterial.transparent = skin.opacity < 1;
+    this.coreMaterial.depthWrite = skin.opacity >= 1;
+    this.stripeMaterial.color.setHex(skin.accent);
+    this.stripeMaterial.emissive.setHex(skin.accent);
   }
 
   update(dt, input, difficulty, getTrackInfo, scoreState, effects) {
@@ -141,6 +160,10 @@ export class BallController {
     this.mesh.rotation.z -= this.velocityX / this.radius / 80;
     const stretch = this.grounded ? this.squash : clamp(this.velocityY / 60, -0.1, 0.18);
     this.group.scale.set(1 + stretch * 0.35, 1 - stretch * 0.45, 1 + stretch * 0.35);
-    this.mesh.material.emissiveIntensity = flowActive ? 0.45 : this.boostTimer > 0 ? 0.22 : 0.05;
+    this.mesh.material.emissiveIntensity = flowActive
+      ? Math.max(0.45, this.baseEmissiveIntensity * 1.35)
+      : this.boostTimer > 0
+        ? Math.max(0.22, this.baseEmissiveIntensity)
+        : this.baseEmissiveIntensity;
   }
 }

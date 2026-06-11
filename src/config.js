@@ -29,5 +29,6 @@ export const CONFIG = Object.freeze({
 export const STORAGE_KEYS = Object.freeze({
   bestScore: `${CONFIG.storagePrefix}.bestScore`,
   bestDistance: `${CONFIG.storagePrefix}.bestDistance`,
-  bestGhost: `${CONFIG.storagePrefix}.bestGhost`
+  bestGhost: `${CONFIG.storagePrefix}.bestGhost`,
+  selectedSkin: `${CONFIG.storagePrefix}.selectedSkin`
 });

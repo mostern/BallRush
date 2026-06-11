@@ -17,11 +17,45 @@ export class HUD {
     this.runSummary = document.querySelector("#runSummary");
     this.startRunButton = document.querySelector("#startRunButton");
     this.dailyRunButton = document.querySelector("#dailyRunButton");
+    this.skinSelector = document.querySelector("#skinSelector");
   }
 
-  bind({ onStartRun, onDailyRun }) {
+  bind({ onStartRun, onDailyRun, onSkinSelect }) {
     this.startRunButton.addEventListener("click", onStartRun);
     this.dailyRunButton.addEventListener("click", onDailyRun);
+    this.skinSelector.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-skin-id]");
+      if (!button) return;
+      onSkinSelect(button.dataset.skinId);
+    });
+  }
+
+  renderSkins(skins, selectedSkin) {
+    this.skinSelector.innerHTML = skins
+      .map(
+        (skin) => `
+          <button
+            class="skin-button"
+            type="button"
+            data-skin-id="${skin.id}"
+            title="${skin.label}"
+            aria-label="${skin.label}"
+            aria-pressed="${skin.id === selectedSkin}"
+          >
+            <span class="skin-swatch" style="--skin-color: #${skin.color.toString(16).padStart(6, "0")}; --skin-accent: #${skin.accent.toString(16).padStart(6, "0")}"></span>
+          </button>
+        `
+      )
+      .join("");
+    this.setSelectedSkin(selectedSkin);
+  }
+
+  setSelectedSkin(selectedSkin) {
+    this.skinSelector.querySelectorAll("[data-skin-id]").forEach((button) => {
+      const active = button.dataset.skinId === selectedSkin;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
   }
 
   showMenu(bestScore = 0) {

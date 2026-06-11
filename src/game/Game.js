@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { CONFIG } from "../config.js";
+import { CONFIG, STORAGE_KEYS } from "../config.js";
 import { BallController } from "./BallController.js";
 import { CameraController } from "./CameraController.js";
 import { ChunkManager } from "./ChunkManager.js";
@@ -8,6 +8,7 @@ import { DifficultyManager } from "./DifficultyManager.js";
 import { GhostSystem } from "./GhostSystem.js";
 import { Input } from "./Input.js";
 import { ScoreManager } from "./ScoreManager.js";
+import { SKINS, getSkin } from "./skins.js";
 import { AudioSystem } from "./AudioSystem.js";
 import { ParticleSystem } from "../effects/Particles.js";
 import { Trail } from "../effects/Trail.js";
@@ -39,6 +40,8 @@ export class Game {
     this.score = new ScoreManager();
     this.chunkManager = new ChunkManager(this.scene);
     this.ball = new BallController(this.scene);
+    this.selectedSkin = getSkin(localStorage.getItem(STORAGE_KEYS.selectedSkin)).id;
+    this.ball.applySkin(this.selectedSkin);
     this.cameraController = new CameraController(this.camera);
     this.collisionSystem = new CollisionSystem();
     this.particles = new ParticleSystem(this.scene);
@@ -53,8 +56,10 @@ export class Game {
 
     this.hud.bind({
       onStartRun: () => this.startRun(this.state === "gameover" && this.dailyMode),
-      onDailyRun: () => this.startRun(true)
+      onDailyRun: () => this.startRun(true),
+      onSkinSelect: (skinId) => this.selectSkin(skinId)
     });
+    this.hud.renderSkins(SKINS, this.selectedSkin);
     this.hud.showMenu(this.score.bestScore);
     this.hud.update(this.score.getSnapshot(), this.ball);
 
@@ -139,6 +144,13 @@ export class Game {
     snapshot.ghostActive = this.ghost.getStatus().active;
     snapshot.ghostSaved = this.ghost.finish(snapshot);
     this.hud.showGameOver(reason, snapshot);
+  }
+
+  selectSkin(skinId) {
+    this.selectedSkin = getSkin(skinId).id;
+    localStorage.setItem(STORAGE_KEYS.selectedSkin, this.selectedSkin);
+    this.ball.applySkin(this.selectedSkin);
+    this.hud.setSelectedSkin(this.selectedSkin);
   }
 
   tick() {
