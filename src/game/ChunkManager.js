@@ -110,14 +110,16 @@ export class ChunkManager {
       if (roll < 0.46) return "softCurve";
       if (roll < 0.64) return "crystalLine";
       if (roll < 0.82) return "jumpRamp";
-      return "obstacleField";
+      if (roll < 0.94) return "obstacleField";
+      return "splitPath";
     }
     if (roll < 0.12) return "straight";
     if (roll < 0.28) return "softCurve";
     if (roll < 0.43) return "hardCurve";
     if (roll < 0.59) return "narrowPath";
     if (roll < 0.74) return "jumpRamp";
-    if (roll < 0.88) return "obstacleField";
+    if (roll < 0.86) return "obstacleField";
+    if (roll < 0.94) return "splitPath";
     return this.rng.choice(CHUNK_TYPES);
   }
 
@@ -136,6 +138,7 @@ export class ChunkManager {
     chunk.group.add(this.createShoulders(chunk));
 
     this.generateObstacles(chunk);
+    if (chunk.type === "splitPath") this.generateSplitPathFeatures(chunk);
     this.generateCollectibles(chunk);
     this.generateGates(chunk);
     if (chunk.type === "jumpRamp") this.generateRamp(chunk);
@@ -342,11 +345,61 @@ export class ChunkManager {
       if (this.hasObstacleNear(chunk, x, z, 2.5)) continue;
       const roll = this.rng.next();
       const type = roll > 0.965 ? "shield" : roll > 0.925 ? "boost" : roll > 0.865 ? "gold" : roll > 0.79 ? "flow" : "crystal";
-      const collectible = { type, x, z, collected: false, spin: this.rng.range(0, Math.PI * 2) };
-      collectible.mesh = this.createCollectibleMesh(collectible);
-      chunk.collectibles.push(collectible);
-      chunk.group.add(collectible.mesh);
+      this.addCollectible(chunk, type, x, z);
     }
+  }
+
+  generateSplitPathFeatures(chunk) {
+    const riskSign = this.rng.chance(0.5) ? -1 : 1;
+    const dividerCount = 5;
+    for (let i = 0; i < dividerCount; i += 1) {
+      const t = 0.2 + (i / (dividerCount - 1)) * 0.62;
+      const z = lerp(chunk.startZ, chunk.endZ, t);
+      const center = this.centerAt(chunk, t);
+      const obstacle = {
+        type: "spike",
+        x: center,
+        baseX: center,
+        z,
+        radius: 1.05 + i * 0.05,
+        passed: false,
+        cleared: false,
+        breakable: false,
+        motion: null,
+        splitDivider: true
+      };
+      obstacle.mesh = this.createObstacleMesh(obstacle, chunk);
+      chunk.obstacles.push(obstacle);
+      chunk.group.add(obstacle.mesh);
+    }
+
+    const bonusCount = 7;
+    for (let i = 0; i < bonusCount; i += 1) {
+      const t = 0.18 + (i / (bonusCount - 1)) * 0.66;
+      const z = lerp(chunk.startZ, chunk.endZ, t);
+      const center = this.centerAt(chunk, t);
+      const width = this.widthAt(chunk, t);
+      const x = center + riskSign * width * 0.34;
+      const type = i === Math.floor(bonusCount / 2) ? "gold" : i % 3 === 0 ? "flow" : "crystal";
+      this.addCollectible(chunk, type, x, z);
+    }
+
+    const safeCount = 4;
+    for (let i = 0; i < safeCount; i += 1) {
+      const t = 0.25 + (i / (safeCount - 1)) * 0.5;
+      const z = lerp(chunk.startZ, chunk.endZ, t);
+      const center = this.centerAt(chunk, t);
+      const width = this.widthAt(chunk, t);
+      this.addCollectible(chunk, "crystal", center - riskSign * width * 0.31, z);
+    }
+  }
+
+  addCollectible(chunk, type, x, z) {
+    const collectible = { type, x, z, collected: false, spin: this.rng.range(0, Math.PI * 2) };
+    collectible.mesh = this.createCollectibleMesh(collectible);
+    chunk.collectibles.push(collectible);
+    chunk.group.add(collectible.mesh);
+    return collectible;
   }
 
   generateGates(chunk) {
