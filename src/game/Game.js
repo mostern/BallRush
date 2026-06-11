@@ -4,6 +4,7 @@ import { AvalancheSystem } from "./AvalancheSystem.js";
 import { BallController } from "./BallController.js";
 import { BiomeEnvironment } from "./BiomeEnvironment.js";
 import { CameraController } from "./CameraController.js";
+import { ChallengeSystem } from "./ChallengeSystem.js";
 import { ChunkManager } from "./ChunkManager.js";
 import { CollisionSystem } from "./CollisionSystem.js";
 import { DifficultyManager } from "./DifficultyManager.js";
@@ -44,6 +45,7 @@ export class Game {
     this.input = new Input();
     this.difficultyManager = new DifficultyManager();
     this.score = new ScoreManager();
+    this.challenges = new ChallengeSystem();
     this.chunkManager = new ChunkManager(this.scene);
     this.ball = new BallController(this.scene);
     this.selectedSkin = getSkin(readStorage(STORAGE_KEYS.selectedSkin, LEGACY_STORAGE_KEYS.selectedSkin)).id;
@@ -73,8 +75,9 @@ export class Game {
     });
     this.hud.renderLevels(LEVELS, this.selectedLevel.id);
     this.hud.renderSkins(SKINS, this.selectedSkin);
+    this.previewChallenges();
     this.hud.showMenu(this.score.bestScore, this.selectedLevel);
-    this.hud.update(this.score.getSnapshot(), this.ball);
+    this.hud.update(this.getHudSnapshot(), this.ball);
 
     window.addEventListener("resize", () => this.onResize());
     this.renderer.setAnimationLoop(() => this.tick());
@@ -150,16 +153,19 @@ export class Game {
     const seed = daily ? this.getDailySeed() : retrySeed ? this.seed : this.getRunSeed();
     this.resetWorld(seed);
     this.score.reset(seed);
+    this.challenges.start(seed, { daily, level: this.selectedLevel });
     this.ghost.start(seed);
     this.elapsed = 0;
     this.state = "running";
     this.hud.showRun(seed, this.ghost.getStatus(), this.selectedLevel);
+    this.hud.renderChallenges(this.challenges.getState());
   }
 
   endRun(reason) {
     if (this.state !== "running") return;
     this.state = "gameover";
     const snapshot = this.score.finishRun();
+    snapshot.challengeState = this.challenges.getState();
     snapshot.ghostActive = this.ghost.getStatus().active;
     snapshot.ghostSaved = this.ghost.finish(snapshot);
     this.hud.showGameOver(reason, snapshot, this.selectedLevel);
@@ -182,6 +188,7 @@ export class Game {
 
     if (this.state !== "running") {
       this.resetWorld(this.getDailySeed());
+      this.previewChallenges();
       this.hud.setSeedLabel(`${this.selectedLevel.label} / ready`);
     }
   }
@@ -252,6 +259,9 @@ export class Game {
       this.audio,
       (reason) => this.endRun(reason)
     );
+    if (this.state !== "running") return;
+
+    this.updateChallenges();
 
     const track = this.chunkManager.getTrackInfo(this.ball.position.z);
     this.biomeEnvironment.update(track.biome, dt);
@@ -261,7 +271,7 @@ export class Game {
     this.snowfall.update(dt, this.ball, track.biome);
     this.particles.update(dt);
     this.updateSkyRig();
-    this.hud.update(this.score.getSnapshot(), this.ball, this.avalanche.getStatus());
+    this.hud.update(this.getHudSnapshot(), this.ball, this.avalanche.getStatus());
   }
 
   updateAttract(dt) {
@@ -280,7 +290,29 @@ export class Game {
     this.snowfall.update(dt, this.ball, track.biome);
     this.particles.update(dt);
     this.updateSkyRig();
-    this.hud.update(this.score.getSnapshot(), this.ball, this.avalanche.getStatus());
+    this.hud.update(this.getHudSnapshot(), this.ball, this.avalanche.getStatus());
+  }
+
+  previewChallenges() {
+    this.challenges.start(this.getDailySeed(), { daily: true, level: this.selectedLevel });
+    this.hud.renderChallenges(this.challenges.getState());
+  }
+
+  updateChallenges() {
+    const completedGoals = this.challenges.update(this.score.getSnapshot());
+    if (!completedGoals.length) return;
+
+    const points = completedGoals.reduce((sum, challenge) => sum + challenge.points, 0);
+    this.score.challengeBonus(points);
+    this.particles.spawnBurst(this.ball.position, 46 + completedGoals.length * 12, 0xffd166, 7, 0.65);
+    this.cameraController.addShake(0.22 + completedGoals.length * 0.08);
+    this.audio.collect(true);
+  }
+
+  getHudSnapshot() {
+    const snapshot = this.score.getSnapshot();
+    snapshot.challengeState = this.challenges.getState();
+    return snapshot;
   }
 
   updateSkyRig() {

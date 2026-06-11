@@ -21,6 +21,8 @@ export class ScoreManager {
     this.flow = 0;
     this.flowActive = false;
     this.flowTimer = 0;
+    this.flowBursts = 0;
+    this.flowTime = 0;
     this.nearMisses = 0;
     this.airtime = 0;
     this.landings = 0;
@@ -28,6 +30,7 @@ export class ScoreManager {
     this.checkpoints = 0;
     this.checkpointStreak = 0;
     this.longestCheckpointStreak = 0;
+    this.challengeBonusScore = 0;
     this.runTime = 0;
     this.newBest = false;
   }
@@ -52,6 +55,7 @@ export class ScoreManager {
     if (ball.speed > 46) this.addFlow(dt * 1.15);
 
     if (this.flowActive) {
+      this.flowTime += dt;
       this.flowTimer -= dt;
       this.score += dt * 26 * this.multiplier;
       if (this.flowTimer <= 0) {
@@ -90,7 +94,13 @@ export class ScoreManager {
       this.flowActive = true;
       this.flowTimer = CONFIG.flowDuration;
       this.flow = CONFIG.flowMax;
+      this.flowBursts += 1;
     }
+  }
+
+  challengeBonus(points) {
+    this.score += points;
+    this.challengeBonusScore += points;
   }
 
   breakObstacle() {
@@ -161,6 +171,8 @@ export class ScoreManager {
       flow: this.flow,
       flowActive: this.flowActive,
       flowTimer: this.flowTimer,
+      flowBursts: this.flowBursts,
+      flowTime: this.flowTime,
       nearMisses: this.nearMisses,
       airtime: this.airtime,
       landings: this.landings,
@@ -168,6 +180,7 @@ export class ScoreManager {
       checkpoints: this.checkpoints,
       checkpointStreak: this.checkpointStreak,
       longestCheckpointStreak: this.longestCheckpointStreak,
+      challengeBonusScore: this.challengeBonusScore,
       bestScore: Math.floor(this.bestScore),
       bestDistance: Math.floor(this.bestDistance),
       newBest: this.newBest,

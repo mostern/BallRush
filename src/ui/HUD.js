@@ -18,6 +18,8 @@ export class HUD {
     this.shieldValue = document.querySelector("#shieldValue");
     this.magnetChip = document.querySelector("#magnetChip");
     this.magnetValue = document.querySelector("#magnetValue");
+    this.challengeHud = document.querySelector("#challengeHud");
+    this.challengeList = document.querySelector("#challengeList");
     this.overlay = document.querySelector("#overlay");
     this.runSummary = document.querySelector("#runSummary");
     this.startRunButton = document.querySelector("#startRunButton");
@@ -120,6 +122,10 @@ export class HUD {
     this.dailyRunButton.textContent = "Daily Run";
     const reasonLabel = level ? `${level.label} / ${reason}` : reason;
     const label = snapshot.newBest ? `New best / ${reasonLabel}` : reasonLabel;
+    const challengeState = snapshot.challengeState;
+    const goalLabel = challengeState
+      ? `${challengeState.completed}/${challengeState.total}${challengeState.bonusEarned ? ` / +${formatNumber(challengeState.bonusEarned)}` : ""}`
+      : "0/0";
     this.runSummary.innerHTML = `
       <span>${label}</span>
       <strong>${formatNumber(snapshot.score)}</strong>
@@ -132,6 +138,7 @@ export class HUD {
         <div><dt>Perfect landings</dt><dd>${formatNumber(snapshot.perfectLandings)}</dd></div>
         <div><dt>Gates</dt><dd>${formatNumber(snapshot.checkpoints)}</dd></div>
         <div><dt>Gate streak</dt><dd>${formatNumber(snapshot.longestCheckpointStreak)}</dd></div>
+        <div><dt>Goals</dt><dd>${goalLabel}</dd></div>
         <div><dt>Ghost</dt><dd>${this.getGhostLabel(snapshot)}</dd></div>
       </dl>
     `;
@@ -164,6 +171,30 @@ export class HUD {
     this.avalancheMeter.classList.toggle("is-active", avalanche.active);
     this.avalancheFill.style.transform = `scaleX(${Math.max(0, Math.min(1, avalanche.danger || 0))})`;
     this.avalancheText.textContent = avalanche.active ? `${Math.max(0, Math.floor(avalanche.gap))} m` : "Clear";
+    if (snapshot.challengeState) this.renderChallenges(snapshot.challengeState);
+  }
+
+  renderChallenges(state) {
+    if (!this.challengeList || !state?.challenges?.length) return;
+    this.challengeList.innerHTML = state.challenges
+      .map((challenge) => {
+        const progress = formatGoalValue(challenge.progress, challenge.unit);
+        const target = formatGoalValue(challenge.target, challenge.unit);
+        const percent = Math.max(0, Math.min(1, challenge.percent || 0));
+        return `
+          <div class="challenge-card${challenge.completed ? " is-complete" : ""}">
+            <div class="challenge-main">
+              <span>${challenge.label}</span>
+              <strong>${progress}/${target}</strong>
+            </div>
+            <span class="challenge-points">+${formatNumber(challenge.points)}</span>
+            <div class="challenge-progress" aria-hidden="true">
+              <div class="challenge-bar" style="transform: scaleX(${percent})"></div>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
   }
 }
 
@@ -174,4 +205,9 @@ function formatSeed(seed, level) {
 
 function toHex(value) {
   return value.toString(16).padStart(6, "0");
+}
+
+function formatGoalValue(value, unit) {
+  const numericValue = unit === "s" ? Number(value).toFixed(1) : formatNumber(value);
+  return unit ? `${numericValue}${unit}` : numericValue;
 }

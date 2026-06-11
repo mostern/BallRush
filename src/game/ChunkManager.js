@@ -13,7 +13,8 @@ const CHUNK_TYPES = [
   "crystalLine",
   "obstacleField",
   "splitPath",
-  "tunnel"
+  "tunnel",
+  "rushDrop"
 ];
 
 export class ChunkManager {
@@ -23,6 +24,7 @@ export class ChunkManager {
     this.rng = new RNG("daily");
     this.nextIndex = 0;
     this.nextCenterX = 0;
+    this.nextHeightOffset = 0;
     this.materials = this.createMaterials();
     this.level = getLevel();
     this.applyLevel(this.level);
@@ -63,6 +65,7 @@ export class ChunkManager {
     this.rng = new RNG(seed);
     this.nextIndex = 0;
     this.nextCenterX = 0;
+    this.nextHeightOffset = 0;
     while (this.chunks.length < CONFIG.activeChunksAhead) {
       this.addChunk(difficultyProvider(this.nextIndex * CONFIG.chunkLength));
     }
@@ -107,19 +110,43 @@ export class ChunkManager {
     const endZ = startZ - length;
     const type = this.pickChunkType(difficulty.value);
     const startX = this.nextCenterX;
-    const curveSign = this.rng.chance(0.5) ? -1 : 1;
+    const curveSign =
+      type === "rushDrop" && Math.abs(startX) > CONFIG.maxCurveOffset * 0.62
+        ? -Math.sign(startX)
+        : this.rng.chance(0.5)
+          ? -1
+          : 1;
+    const curveCeiling = Math.max(11, difficulty.curveIntensity * 1.35);
     const curveAmount =
       type === "straight"
         ? this.rng.range(-2.5, 2.5)
         : type === "tunnel"
           ? this.rng.range(2, Math.max(3, difficulty.curveIntensity * 0.55)) * curveSign
+          : type === "rushDrop"
+            ? this.rng.range(9, curveCeiling) * curveSign
           : this.rng.range(3, difficulty.curveIntensity) * curveSign;
     const endX = clamp(startX + curveAmount, -CONFIG.maxCurveOffset, CONFIG.maxCurveOffset);
     this.nextCenterX = endX;
 
-    const widthModifier = type === "narrowPath" ? 0.72 : type === "splitPath" ? 0.84 : type === "tunnel" ? 0.88 : type === "jumpRamp" ? 0.92 : 1;
+    const widthModifier =
+      type === "narrowPath"
+        ? 0.72
+        : type === "splitPath"
+          ? 0.84
+          : type === "rushDrop"
+            ? 0.78
+            : type === "tunnel"
+              ? 0.88
+              : type === "jumpRamp"
+                ? 0.92
+                : 1;
     const width = clamp(difficulty.width * widthModifier, CONFIG.chunkWidthMin, CONFIG.chunkWidthStart);
     const surface = this.pickSurface(type, difficulty.biome.id);
+    const startHeightOffset = this.nextHeightOffset;
+    const rushIntensity = type === "rushDrop" ? this.rng.range(0.9, 1.35) : 0;
+    const dropDepth = type === "rushDrop" ? this.rng.range(12, 20) * (0.85 + difficulty.value * 0.4) * rushIntensity : 0;
+    const endHeightOffset = type === "rushDrop" ? startHeightOffset - dropDepth : startHeightOffset * 0.9;
+    this.nextHeightOffset = endHeightOffset;
 
     return {
       index,
@@ -132,6 +159,9 @@ export class ChunkManager {
       endX,
       width,
       surface,
+      startHeightOffset,
+      endHeightOffset,
+      rushIntensity,
       sway: this.rng.range(-2.2, 2.2) * difficulty.value,
       group: new THREE.Group(),
       obstacles: [],
@@ -150,22 +180,25 @@ export class ChunkManager {
       if (roll < 0.64) return "crystalLine";
       if (roll < 0.8) return "jumpRamp";
       if (roll < 0.9) return "obstacleField";
-      if (roll < 0.97) return "splitPath";
-      return "tunnel";
+      if (roll < 0.95) return "splitPath";
+      if (roll < 0.985) return "tunnel";
+      return "rushDrop";
     }
     if (roll < 0.11) return "straight";
     if (roll < 0.25) return "softCurve";
     if (roll < 0.39) return "hardCurve";
     if (roll < 0.54) return "narrowPath";
     if (roll < 0.68) return "jumpRamp";
-    if (roll < 0.8) return "obstacleField";
-    if (roll < 0.9) return "splitPath";
-    if (roll < 0.97) return "tunnel";
+    if (roll < 0.79) return "obstacleField";
+    if (roll < 0.88) return "splitPath";
+    if (roll < 0.94) return "tunnel";
+    if (roll < 0.985) return "rushDrop";
     return this.rng.choice(CHUNK_TYPES);
   }
 
   pickSurface(type, biome) {
     if (type === "jumpRamp") return "boost";
+    if (type === "rushDrop") return "boost";
     if (type === "tunnel") return "stone";
     if (biome === "iceCanyon" || biome === "crystalCave") return this.rng.chance(0.48) ? "ice" : "snow";
     if (biome === "stormPeak") return this.rng.chance(0.28) ? "powder" : "stone";
@@ -199,8 +232,8 @@ export class ChunkManager {
       const z = lerp(chunk.startZ, chunk.endZ, t);
       const center = this.centerAt(chunk, t);
       const width = this.widthAt(chunk, t);
-      const y = this.groundY(z);
-      const camber = Math.sin(t * Math.PI) * (chunk.type === "hardCurve" ? 0.38 : 0.16);
+      const y = this.groundYAt(chunk, z, t);
+      const camber = Math.sin(t * Math.PI) * (chunk.type === "rushDrop" ? 0.58 : chunk.type === "hardCurve" ? 0.38 : 0.16);
       vertices.push(center - width / 2, y - camber, z, center + width / 2, y + camber, z);
       uvs.push(0, t * 5, 1, t * 5);
       if (i < steps) {
@@ -225,13 +258,13 @@ export class ChunkManager {
     const vertices = [];
     const uvs = [];
     const indices = [];
-    const surfaceWidthMultiplier = chunk.surface === "boost" ? 0.42 : chunk.surface === "powder" ? 0.82 : 0.94;
+    const surfaceWidthMultiplier = chunk.type === "rushDrop" ? 0.72 : chunk.surface === "boost" ? 0.42 : chunk.surface === "powder" ? 0.82 : 0.94;
     for (let i = 0; i <= steps; i += 1) {
       const t = i / steps;
       const z = lerp(chunk.startZ, chunk.endZ, t);
       const center = this.centerAt(chunk, t);
       const width = this.widthAt(chunk, t) * surfaceWidthMultiplier;
-      const y = this.groundY(z) + 0.055;
+      const y = this.groundYAt(chunk, z, t) + 0.055;
       vertices.push(center - width / 2, y, z, center + width / 2, y, z);
       uvs.push(0, t * 6, 1, t * 6);
       if (i < steps) {
@@ -259,7 +292,7 @@ export class ChunkManager {
       const z = lerp(chunk.startZ, chunk.endZ, t);
       const center = this.centerAt(chunk, t);
       const width = this.widthAt(chunk, t);
-      const y = this.groundY(z) + 0.1;
+      const y = this.groundYAt(chunk, z, t) + 0.1;
       leftPoints.push(new THREE.Vector3(center - width / 2, y, z));
       rightPoints.push(new THREE.Vector3(center + width / 2, y, z));
     }
@@ -276,7 +309,7 @@ export class ChunkManager {
       const z = lerp(chunk.startZ, chunk.endZ, t);
       const center = this.centerAt(chunk, t);
       const width = this.widthAt(chunk, t);
-      const y = this.groundY(z);
+      const y = this.groundYAt(chunk, z, t);
       vertices.push(center - width / 2, y - 0.1, z, center - width / 2 - 18, y - 9, z);
       vertices.push(center + width / 2, y - 0.1, z, center + width / 2 + 18, y - 9, z);
       if (i < steps) {
@@ -312,7 +345,7 @@ export class ChunkManager {
       const z = lerp(chunk.startZ, chunk.endZ, t);
       const center = this.centerAt(chunk, t);
       const width = this.widthAt(chunk, t);
-      const y = this.groundY(z) + 2.15;
+      const y = this.groundYAt(chunk, z, t) + 2.15;
       [-1, 1].forEach((side) => {
         const light = new THREE.Mesh(new THREE.SphereGeometry(0.34, 10, 10), this.materials.tunnelLight);
         light.position.set(center + side * width * 0.5, y, z);
@@ -328,7 +361,7 @@ export class ChunkManager {
     const z = lerp(chunk.startZ, chunk.endZ, t);
     const center = this.centerAt(chunk, t);
     const width = this.widthAt(chunk, t);
-    const ground = this.groundY(z) + 0.32;
+    const ground = this.groundYAt(chunk, z, t) + 0.32;
     const height = 6.4;
     const halfWidth = width * 0.56;
     const postGeometry = new THREE.CylinderGeometry(0.34, 0.34, height, 7);
@@ -360,7 +393,7 @@ export class ChunkManager {
       const z = lerp(chunk.startZ, chunk.endZ, t);
       const center = this.centerAt(chunk, t);
       const width = this.widthAt(chunk, t);
-      const y = this.groundY(z) + 0.25;
+      const y = this.groundYAt(chunk, z, t) + 0.25;
       const halfWidth = width * 0.58;
       const height = 8.8 + width * 0.12;
 
@@ -398,7 +431,7 @@ export class ChunkManager {
         const z = lerp(chunk.startZ, chunk.endZ, t);
         const center = this.centerAt(chunk, t);
         const width = this.widthAt(chunk, t);
-        points.push(new THREE.Vector3(center + side * width * 0.5, this.groundY(z) + 2.15, z));
+        points.push(new THREE.Vector3(center + side * width * 0.5, this.groundYAt(chunk, z, t) + 2.15, z));
       }
       const rail = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), this.materials.tunnelRail);
       group.add(rail);
@@ -411,7 +444,7 @@ export class ChunkManager {
     const z = lerp(chunk.startZ, chunk.endZ, t);
     const center = this.centerAt(chunk, t);
     const width = this.widthAt(chunk, t);
-    const y = this.groundY(z) + 0.35;
+    const y = this.groundYAt(chunk, z, t) + 0.35;
     const halfWidth = width * 0.58;
     const height = 5.8 + width * 0.08;
     const segments = 9;
@@ -440,9 +473,9 @@ export class ChunkManager {
   }
 
   generateObstacles(chunk) {
-    const base = chunk.type === "obstacleField" ? 12 : chunk.type === "narrowPath" ? 7 : chunk.type === "tunnel" ? 4 : 5;
-    const progression = chunk.type === "tunnel" ? chunk.index * 0.07 : chunk.index * 0.11;
-    const variance = chunk.type === "tunnel" ? this.rng.range(0, 2.5) : this.rng.range(0, 4);
+    const base = chunk.type === "obstacleField" ? 12 : chunk.type === "narrowPath" ? 7 : chunk.type === "tunnel" ? 4 : chunk.type === "rushDrop" ? 4 : 5;
+    const progression = chunk.type === "tunnel" || chunk.type === "rushDrop" ? chunk.index * 0.07 : chunk.index * 0.11;
+    const variance = chunk.type === "tunnel" || chunk.type === "rushDrop" ? this.rng.range(0, 2.5) : this.rng.range(0, 4);
     const count = Math.floor(base + progression + variance);
     for (let i = 0; i < count; i += 1) {
       const t = this.rng.range(0.13, 0.96);
@@ -452,8 +485,11 @@ export class ChunkManager {
       const lane = this.rng.choice([-0.42, -0.26, -0.08, 0.1, 0.28, 0.43]);
       const x = center + lane * width + this.rng.range(-0.8, 0.8);
       let radius = this.rng.range(0.8, chunk.type === "obstacleField" ? 1.75 : 1.35);
-      let type = chunk.type === "tunnel" ? this.rng.choice(["rock", "ice", "spike"]) : this.rng.choice(["rock", "tree", "ice", "spike"]);
-      const rollerChance = chunk.type === "tunnel" ? 0 : chunk.index > 5 ? Math.min(0.28, (chunk.index - 5) * 0.014) : 0;
+      let type =
+        chunk.type === "tunnel" || chunk.type === "rushDrop"
+          ? this.rng.choice(["rock", "ice", "spike"])
+          : this.rng.choice(["rock", "tree", "ice", "spike"]);
+      const rollerChance = chunk.type === "tunnel" || chunk.type === "rushDrop" ? 0 : chunk.index > 5 ? Math.min(0.28, (chunk.index - 5) * 0.014) : 0;
       if (this.rng.chance(rollerChance)) {
         type = "roller";
         radius = this.rng.range(1.05, 1.55);
@@ -483,7 +519,7 @@ export class ChunkManager {
   }
 
   createObstacleMesh(obstacle, chunk) {
-    const y = this.groundY(obstacle.z);
+    const y = this.groundYAt(chunk, obstacle.z);
     let mesh;
     if (obstacle.type === "tree") {
       const group = new THREE.Group();
@@ -523,20 +559,22 @@ export class ChunkManager {
   }
 
   generateCollectibles(chunk) {
-    const count = chunk.type === "crystalLine" ? 18 : chunk.type === "obstacleField" ? 8 : chunk.type === "tunnel" ? 11 : 12;
-    const laneOffset = chunk.type === "tunnel" ? 0 : this.rng.range(-0.32, 0.32);
+    const count = chunk.type === "crystalLine" ? 18 : chunk.type === "obstacleField" ? 8 : chunk.type === "rushDrop" ? 15 : chunk.type === "tunnel" ? 11 : 12;
+    const laneOffset = chunk.type === "tunnel" || chunk.type === "rushDrop" ? 0 : this.rng.range(-0.32, 0.32);
     for (let i = 0; i < count; i += 1) {
       const t = (i + 1) / (count + 1);
       const z = lerp(chunk.startZ, chunk.endZ, t);
       const center = this.centerAt(chunk, t);
       const width = this.widthAt(chunk, t);
-      const waveScale = chunk.type === "tunnel" ? 0.1 : 0.16;
+      const waveScale = chunk.type === "rushDrop" ? 0.24 : chunk.type === "tunnel" ? 0.1 : 0.16;
       const wave = Math.sin(t * Math.PI * 2 + chunk.index) * waveScale;
       const x = center + (laneOffset + wave) * width;
       if (this.hasObstacleNear(chunk, x, z, 2.5)) continue;
       const roll = this.rng.next();
       const type =
-        chunk.type === "tunnel" && i === Math.floor(count / 2)
+        chunk.type === "rushDrop" && (i === Math.floor(count * 0.38) || i === Math.floor(count * 0.68))
+          ? "boost"
+          : chunk.type === "tunnel" && i === Math.floor(count / 2)
           ? "flow"
           : roll > 0.965
             ? "shield"
@@ -598,14 +636,14 @@ export class ChunkManager {
 
   addCollectible(chunk, type, x, z) {
     const collectible = { type, x, z, collected: false, spin: this.rng.range(0, Math.PI * 2) };
-    collectible.mesh = this.createCollectibleMesh(collectible);
+    collectible.mesh = this.createCollectibleMesh(collectible, chunk);
     chunk.collectibles.push(collectible);
     chunk.group.add(collectible.mesh);
     return collectible;
   }
 
   generateGates(chunk) {
-    if (chunk.index < 3 || chunk.type === "jumpRamp") return;
+    if (chunk.index < 3 || chunk.type === "jumpRamp" || chunk.type === "rushDrop") return;
     const chance = chunk.type === "narrowPath" ? 0.54 : chunk.type === "crystalLine" ? 0.48 : 0.34;
     if (!this.rng.chance(chance)) return;
 
@@ -620,13 +658,13 @@ export class ChunkManager {
       passed: false,
       missed: false
     };
-    gate.mesh = this.createGateMesh(gate);
+    gate.mesh = this.createGateMesh(gate, chunk);
     chunk.gates.push(gate);
     chunk.group.add(gate.mesh);
   }
 
-  createGateMesh(gate) {
-    const y = this.groundY(gate.z);
+  createGateMesh(gate, chunk) {
+    const y = this.groundYAt(chunk, gate.z);
     const group = new THREE.Group();
     const poleGeometry = new THREE.CylinderGeometry(0.08, 0.1, 4.4, 8);
     const leftPole = new THREE.Mesh(poleGeometry, this.materials.gatePole);
@@ -647,7 +685,7 @@ export class ChunkManager {
     return group;
   }
 
-  createCollectibleMesh(collectible) {
+  createCollectibleMesh(collectible, chunk) {
     const colors = {
       crystal: [0x55ecff, 0x1ac7ff],
       gold: [0xffcf4a, 0xff7b2f],
@@ -666,7 +704,7 @@ export class ChunkManager {
         emissiveIntensity: collectible.type === "crystal" ? 0.7 : 1.05
       })
     );
-    mesh.position.set(collectible.x, this.groundY(collectible.z) + 1.42, collectible.z);
+    mesh.position.set(collectible.x, this.groundYAt(chunk, collectible.z) + 1.42, collectible.z);
     mesh.castShadow = true;
     mesh.userData.entity = collectible;
     return mesh;
@@ -691,7 +729,7 @@ export class ChunkManager {
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
     const mesh = new THREE.Mesh(geometry, this.materials.ramp);
-    mesh.position.set(center, this.groundY(z) + 0.08, z);
+    mesh.position.set(center, this.groundYAt(chunk, z, t) + 0.08, z);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     ramp.mesh = mesh;
@@ -723,7 +761,7 @@ export class ChunkManager {
         if (collectible.collected) continue;
         collectible.spin += dt * (flowActive ? 4.5 : 2.4);
         collectible.mesh.rotation.set(collectible.spin * 0.32, collectible.spin, collectible.spin * 0.18);
-        collectible.mesh.position.y = this.groundY(collectible.z) + 1.42 + Math.sin(elapsed * 3 + collectible.spin) * 0.12;
+        collectible.mesh.position.y = this.groundYAt(chunk, collectible.z) + 1.42 + Math.sin(elapsed * 3 + collectible.spin) * 0.12;
       }
     }
   }
@@ -741,7 +779,9 @@ export class ChunkManager {
         width: CONFIG.chunkWidthStart,
         groundY: this.groundY(z),
         surface: "snow",
-        biome: "snowfield"
+        biome: "snowfield",
+        rush: false,
+        rushIntensity: 0
       };
     }
     const t = clamp((chunk.startZ - z) / chunk.length, 0, 1);
@@ -750,9 +790,11 @@ export class ChunkManager {
       t,
       centerX: this.centerAt(chunk, t),
       width: this.widthAt(chunk, t),
-      groundY: this.groundY(z),
+      groundY: this.groundYAt(chunk, z, t),
       surface: chunk.surface,
-      biome: chunk.biome
+      biome: chunk.biome,
+      rush: chunk.type === "rushDrop",
+      rushIntensity: this.rushAmountAt(chunk, t)
     };
   }
 
@@ -765,8 +807,24 @@ export class ChunkManager {
   }
 
   widthAt(chunk, t) {
-    const pinch = chunk.type === "splitPath" ? Math.sin(t * Math.PI) * 0.14 : 0;
+    const pinch =
+      chunk.type === "splitPath"
+        ? Math.sin(t * Math.PI) * 0.14
+        : chunk.type === "rushDrop"
+          ? Math.sin(t * Math.PI) * 0.08
+          : 0;
     return chunk.width * (1 - pinch);
+  }
+
+  groundYAt(chunk, z, t = null) {
+    if (!chunk) return this.groundY(z);
+    const localT = t ?? clamp((chunk.startZ - z) / chunk.length, 0, 1);
+    return this.groundY(z) + lerp(chunk.startHeightOffset || 0, chunk.endHeightOffset || 0, smoothstep(localT));
+  }
+
+  rushAmountAt(chunk, t) {
+    if (chunk.type !== "rushDrop") return 0;
+    return chunk.rushIntensity * Math.sin(t * Math.PI);
   }
 
   groundY(z) {

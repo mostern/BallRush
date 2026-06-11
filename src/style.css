@@ -144,6 +144,92 @@ canvas {
   line-height: 1;
 }
 
+.challenge-hud {
+  top: clamp(92px, 9vw, 112px);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.challenge-list {
+  width: min(560px, 58vw);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.challenge-card {
+  position: relative;
+  min-width: 0;
+  min-height: 54px;
+  overflow: hidden;
+  padding: 8px 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(255, 209, 102, 0.12), transparent 64%),
+    var(--panel);
+  box-shadow: 0 16px 48px rgba(5, 24, 34, 0.14);
+  backdrop-filter: blur(16px);
+}
+
+.challenge-card.is-complete {
+  border-color: rgba(255, 209, 102, 0.82);
+  box-shadow:
+    0 0 0 1px rgba(255, 209, 102, 0.18),
+    0 16px 48px rgba(255, 209, 102, 0.14);
+}
+
+.challenge-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.challenge-main span,
+.challenge-points {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.62rem;
+  font-weight: 900;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.challenge-main strong {
+  color: #ffffff;
+  font-size: 0.78rem;
+  line-height: 1;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.challenge-points {
+  display: block;
+  margin-top: 7px;
+  color: var(--gold);
+}
+
+.challenge-progress {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 7px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.challenge-bar {
+  width: 100%;
+  height: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  background: linear-gradient(90deg, var(--gold), var(--green));
+  box-shadow: 0 0 18px rgba(255, 209, 102, 0.62);
+  transition: transform 0.14s ease;
+}
+
 .hud-bottom {
   bottom: clamp(14px, 3vw, 30px);
   display: grid;
@@ -502,6 +588,14 @@ h1 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .challenge-hud {
+    top: 218px;
+  }
+
+  .challenge-list {
+    width: 100%;
+  }
+
   .hud-bottom {
     grid-template-columns: 1fr 82px 82px 82px;
   }
@@ -536,6 +630,29 @@ h1 {
   .stat {
     min-height: 54px;
     padding: 8px 10px;
+  }
+
+  .challenge-hud {
+    top: 210px;
+  }
+
+  .challenge-list {
+    gap: 6px;
+  }
+
+  .challenge-card {
+    min-height: 50px;
+    padding: 7px 7px 11px;
+  }
+
+  .challenge-main {
+    display: block;
+  }
+
+  .challenge-main strong {
+    display: block;
+    margin-top: 4px;
+    text-align: left;
   }
 
   .hud-bottom {

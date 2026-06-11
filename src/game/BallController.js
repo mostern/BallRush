@@ -101,6 +101,7 @@ export class BallController {
     this.lastLanding = null;
     const currentTrack = getTrackInfo(this.position.z);
     const surface = this.getSurfaceProfile(currentTrack.surface);
+    const rushIntensity = currentTrack.rush ? currentTrack.rushIntensity : 0;
     const steerPower = (scoreState.flowActive ? CONFIG.steeringForce * 1.18 : CONFIG.steeringForce) * surface.steerMultiplier;
     this.velocityX += input.steer * steerPower * dt;
     this.velocityX *= Math.pow(surface.lateralFriction, dt * 60);
@@ -113,7 +114,8 @@ export class BallController {
     if (input.brake) desiredSpeed *= 0.72;
     if (this.boostTimer > 0) desiredSpeed *= 1.28;
     if (scoreState.flowActive) desiredSpeed *= 1.07;
-    desiredSpeed = clamp(desiredSpeed, CONFIG.baseSpeed * 0.55, CONFIG.maxSpeed);
+    if (rushIntensity > 0) desiredSpeed *= 1 + rushIntensity * 0.16;
+    desiredSpeed = clamp(desiredSpeed, CONFIG.baseSpeed * 0.55, CONFIG.maxSpeed + rushIntensity * 16);
     this.speed = damp(this.speed, desiredSpeed, 1.9, dt);
 
     if (input.consumeJump() && this.grounded) {
