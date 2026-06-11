@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { CONFIG, STORAGE_KEYS } from "../config.js";
 import { BallController } from "./BallController.js";
+import { BiomeEnvironment } from "./BiomeEnvironment.js";
 import { CameraController } from "./CameraController.js";
 import { ChunkManager } from "./ChunkManager.js";
 import { CollisionSystem } from "./CollisionSystem.js";
@@ -54,6 +55,7 @@ export class Game {
 
     this.createLighting();
     this.createSkyRig();
+    this.biomeEnvironment = new BiomeEnvironment(this.scene, this.lights, this.skyRig);
     this.resetWorld(this.getDailySeed());
 
     this.hud.bind({
@@ -86,6 +88,8 @@ export class Game {
     const rim = new THREE.DirectionalLight(0x61f0ff, 1.1);
     rim.position.set(36, 18, -28);
     this.scene.add(rim);
+
+    this.lights = { hemi, sun, rim };
   }
 
   createSkyRig() {
@@ -193,6 +197,7 @@ export class Game {
     );
 
     const track = this.chunkManager.getTrackInfo(this.ball.position.z);
+    this.biomeEnvironment.update(track.biome, dt);
     this.cameraController.update(dt, this.ball, track, this.score.flowActive);
     this.trail.update(dt, this.ball, this.score.flowActive);
     this.speedLines.update(dt, this.ball, this.score.flowActive);
@@ -203,6 +208,7 @@ export class Game {
 
   updateAttract(dt) {
     const track = this.chunkManager.getTrackInfo(this.ball.position.z);
+    this.biomeEnvironment.update(track.biome, dt);
     this.ball.position.z -= dt * 5;
     this.ball.position.y = this.chunkManager.getTrackInfo(this.ball.position.z).groundY + this.ball.radius;
     this.ball.updateMesh(false);
@@ -220,7 +226,8 @@ export class Game {
   updateSkyRig() {
     this.skyRig.position.set(this.ball.position.x * 0.12, this.ball.position.y * 0.1, this.ball.position.z);
     this.skyRig.children.forEach((child, index) => {
-      child.material.opacity = (index % 2 ? 0.12 : 0.18) + Math.sin(this.elapsed * 0.8 + index) * 0.035;
+      const baseOpacity = child.userData.baseOpacity ?? (index % 2 ? 0.12 : 0.18);
+      child.material.opacity = Math.max(0.04, baseOpacity + Math.sin(this.elapsed * 0.8 + index) * 0.035);
     });
   }
 
