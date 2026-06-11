@@ -13,6 +13,7 @@ import { ScoreManager } from "./ScoreManager.js";
 import { SKINS, getSkin } from "./skins.js";
 import { AudioSystem } from "./AudioSystem.js";
 import { ParticleSystem } from "../effects/Particles.js";
+import { Snowfall } from "../effects/Snowfall.js";
 import { SpeedLines } from "../effects/SpeedLines.js";
 import { Trail } from "../effects/Trail.js";
 import { HUD } from "../ui/HUD.js";
@@ -48,6 +49,7 @@ export class Game {
     this.cameraController = new CameraController(this.camera);
     this.collisionSystem = new CollisionSystem();
     this.particles = new ParticleSystem(this.scene);
+    this.snowfall = new Snowfall(this.scene);
     this.trail = new Trail(this.scene);
     this.speedLines = new SpeedLines(this.scene);
     this.avalanche = new AvalancheSystem(this.scene);
@@ -130,6 +132,7 @@ export class Game {
     this.collisionSystem.reset();
     this.trail.reset();
     this.speedLines.reset();
+    this.snowfall.reset(this.ball.position);
     this.avalanche.reset();
     this.ghost.reset();
   }
@@ -221,6 +224,7 @@ export class Game {
     this.cameraController.update(dt, this.ball, track, this.score.flowActive);
     this.trail.update(dt, this.ball, this.score.flowActive);
     this.speedLines.update(dt, this.ball, this.score.flowActive);
+    this.snowfall.update(dt, this.ball, track.biome);
     this.particles.update(dt);
     this.updateSkyRig();
     this.hud.update(this.score.getSnapshot(), this.ball, this.avalanche.getStatus());
@@ -239,6 +243,7 @@ export class Game {
     this.cameraController.update(dt, this.ball, track, false);
     this.trail.update(dt, this.ball, false);
     this.speedLines.update(dt, this.ball, false);
+    this.snowfall.update(dt, this.ball, track.biome);
     this.particles.update(dt);
     this.updateSkyRig();
     this.hud.update(this.score.getSnapshot(), this.ball, this.avalanche.getStatus());
