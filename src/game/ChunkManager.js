@@ -12,7 +12,8 @@ const CHUNK_TYPES = [
   "jumpRamp",
   "crystalLine",
   "obstacleField",
-  "splitPath"
+  "splitPath",
+  "tunnel"
 ];
 
 export class ChunkManager {
@@ -44,6 +45,11 @@ export class ChunkManager {
       "rollerBand",
       "gatePole",
       "gateRing",
+      "tunnelWall",
+      "tunnelRib",
+      "tunnelLight",
+      "tunnelRail",
+      "tunnelGlow",
       "trunk",
       "pine",
       "ramp"
@@ -102,11 +108,16 @@ export class ChunkManager {
     const type = this.pickChunkType(difficulty.value);
     const startX = this.nextCenterX;
     const curveSign = this.rng.chance(0.5) ? -1 : 1;
-    const curveAmount = type === "straight" ? this.rng.range(-2.5, 2.5) : this.rng.range(3, difficulty.curveIntensity) * curveSign;
+    const curveAmount =
+      type === "straight"
+        ? this.rng.range(-2.5, 2.5)
+        : type === "tunnel"
+          ? this.rng.range(2, Math.max(3, difficulty.curveIntensity * 0.55)) * curveSign
+          : this.rng.range(3, difficulty.curveIntensity) * curveSign;
     const endX = clamp(startX + curveAmount, -CONFIG.maxCurveOffset, CONFIG.maxCurveOffset);
     this.nextCenterX = endX;
 
-    const widthModifier = type === "narrowPath" ? 0.72 : type === "splitPath" ? 0.84 : type === "jumpRamp" ? 0.92 : 1;
+    const widthModifier = type === "narrowPath" ? 0.72 : type === "splitPath" ? 0.84 : type === "tunnel" ? 0.88 : type === "jumpRamp" ? 0.92 : 1;
     const width = clamp(difficulty.width * widthModifier, CONFIG.chunkWidthMin, CONFIG.chunkWidthStart);
     const surface = this.pickSurface(type, difficulty.biome.id);
 
@@ -137,22 +148,25 @@ export class ChunkManager {
       if (roll < 0.2) return "straight";
       if (roll < 0.46) return "softCurve";
       if (roll < 0.64) return "crystalLine";
-      if (roll < 0.82) return "jumpRamp";
-      if (roll < 0.94) return "obstacleField";
-      return "splitPath";
+      if (roll < 0.8) return "jumpRamp";
+      if (roll < 0.9) return "obstacleField";
+      if (roll < 0.97) return "splitPath";
+      return "tunnel";
     }
-    if (roll < 0.12) return "straight";
-    if (roll < 0.28) return "softCurve";
-    if (roll < 0.43) return "hardCurve";
-    if (roll < 0.59) return "narrowPath";
-    if (roll < 0.74) return "jumpRamp";
-    if (roll < 0.86) return "obstacleField";
-    if (roll < 0.94) return "splitPath";
+    if (roll < 0.11) return "straight";
+    if (roll < 0.25) return "softCurve";
+    if (roll < 0.39) return "hardCurve";
+    if (roll < 0.54) return "narrowPath";
+    if (roll < 0.68) return "jumpRamp";
+    if (roll < 0.8) return "obstacleField";
+    if (roll < 0.9) return "splitPath";
+    if (roll < 0.97) return "tunnel";
     return this.rng.choice(CHUNK_TYPES);
   }
 
   pickSurface(type, biome) {
     if (type === "jumpRamp") return "boost";
+    if (type === "tunnel") return "stone";
     if (biome === "iceCanyon" || biome === "crystalCave") return this.rng.chance(0.48) ? "ice" : "snow";
     if (biome === "stormPeak") return this.rng.chance(0.28) ? "powder" : "stone";
     return "snow";
@@ -164,6 +178,7 @@ export class ChunkManager {
     const surfaceOverlay = this.createSurfaceOverlay(chunk);
     if (surfaceOverlay) chunk.group.add(surfaceOverlay);
     chunk.group.add(this.createShoulders(chunk));
+    if (chunk.type === "tunnel") chunk.group.add(this.createTunnel(chunk));
 
     this.generateObstacles(chunk);
     if (chunk.type === "splitPath") this.generateSplitPathFeatures(chunk);
@@ -279,9 +294,156 @@ export class ChunkManager {
     return group;
   }
 
+  createTunnel(chunk) {
+    const group = new THREE.Group();
+    group.name = `tunnel-${chunk.index}`;
+    group.add(this.createTunnelShell(chunk));
+    group.add(this.createTunnelRails(chunk));
+    group.add(this.createTunnelPortal(chunk, 0.02));
+    group.add(this.createTunnelPortal(chunk, 0.98));
+
+    [0.04, 0.28, 0.52, 0.76, 0.98].forEach((t) => {
+      group.add(this.createTunnelRib(chunk, t));
+    });
+
+    const lightCount = 7;
+    for (let i = 0; i < lightCount; i += 1) {
+      const t = (i + 0.5) / lightCount;
+      const z = lerp(chunk.startZ, chunk.endZ, t);
+      const center = this.centerAt(chunk, t);
+      const width = this.widthAt(chunk, t);
+      const y = this.groundY(z) + 2.15;
+      [-1, 1].forEach((side) => {
+        const light = new THREE.Mesh(new THREE.SphereGeometry(0.34, 10, 10), this.materials.tunnelLight);
+        light.position.set(center + side * width * 0.5, y, z);
+        group.add(light);
+      });
+    }
+
+    return group;
+  }
+
+  createTunnelPortal(chunk, t) {
+    const group = new THREE.Group();
+    const z = lerp(chunk.startZ, chunk.endZ, t);
+    const center = this.centerAt(chunk, t);
+    const width = this.widthAt(chunk, t);
+    const ground = this.groundY(z) + 0.32;
+    const height = 6.4;
+    const halfWidth = width * 0.56;
+    const postGeometry = new THREE.CylinderGeometry(0.34, 0.34, height, 7);
+    const leftPost = new THREE.Mesh(postGeometry, this.materials.tunnelRib);
+    const rightPost = new THREE.Mesh(postGeometry, this.materials.tunnelRib);
+    leftPost.position.set(center - halfWidth, ground + height / 2, z);
+    rightPost.position.set(center + halfWidth, ground + height / 2, z);
+
+    const topBar = new THREE.Mesh(new THREE.BoxGeometry(halfWidth * 2 + 0.8, 0.64, 0.64), this.materials.tunnelRib);
+    topBar.position.set(center, ground + height, z);
+    const glow = new THREE.Mesh(new THREE.PlaneGeometry(halfWidth * 2 + 2.2, height + 2.2), this.materials.tunnelGlow);
+    glow.position.set(center, ground + height / 2, z + 0.04);
+
+    leftPost.castShadow = true;
+    rightPost.castShadow = true;
+    topBar.castShadow = true;
+    group.add(glow, leftPost, rightPost, topBar);
+    return group;
+  }
+
+  createTunnelShell(chunk) {
+    const lengthSteps = 16;
+    const archSteps = 10;
+    const vertices = [];
+    const indices = [];
+
+    for (let i = 0; i <= lengthSteps; i += 1) {
+      const t = i / lengthSteps;
+      const z = lerp(chunk.startZ, chunk.endZ, t);
+      const center = this.centerAt(chunk, t);
+      const width = this.widthAt(chunk, t);
+      const y = this.groundY(z) + 0.25;
+      const halfWidth = width * 0.58;
+      const height = 8.8 + width * 0.12;
+
+      for (let a = 0; a <= archSteps; a += 1) {
+        const angle = Math.PI - (a / archSteps) * Math.PI;
+        vertices.push(center + Math.cos(angle) * halfWidth, y + Math.sin(angle) * height, z);
+      }
+    }
+
+    const rowSize = archSteps + 1;
+    for (let i = 0; i < lengthSteps; i += 1) {
+      for (let a = 0; a < archSteps; a += 1) {
+        const row = i * rowSize + a;
+        indices.push(row, row + rowSize, row + 1, row + 1, row + rowSize, row + rowSize + 1);
+      }
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    const shell = new THREE.Mesh(geometry, this.materials.tunnelWall);
+    shell.castShadow = true;
+    shell.receiveShadow = true;
+    return shell;
+  }
+
+  createTunnelRails(chunk) {
+    const group = new THREE.Group();
+    const steps = 18;
+    [-1, 1].forEach((side) => {
+      const points = [];
+      for (let i = 0; i <= steps; i += 1) {
+        const t = i / steps;
+        const z = lerp(chunk.startZ, chunk.endZ, t);
+        const center = this.centerAt(chunk, t);
+        const width = this.widthAt(chunk, t);
+        points.push(new THREE.Vector3(center + side * width * 0.5, this.groundY(z) + 2.15, z));
+      }
+      const rail = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), this.materials.tunnelRail);
+      group.add(rail);
+    });
+    return group;
+  }
+
+  createTunnelRib(chunk, t) {
+    const group = new THREE.Group();
+    const z = lerp(chunk.startZ, chunk.endZ, t);
+    const center = this.centerAt(chunk, t);
+    const width = this.widthAt(chunk, t);
+    const y = this.groundY(z) + 0.35;
+    const halfWidth = width * 0.58;
+    const height = 5.8 + width * 0.08;
+    const segments = 9;
+    const points = [];
+
+    for (let i = 0; i <= segments; i += 1) {
+      const angle = Math.PI - (i / segments) * Math.PI;
+      points.push(new THREE.Vector3(center + Math.cos(angle) * halfWidth, y + Math.sin(angle) * height, z));
+    }
+
+    for (let i = 0; i < points.length - 1; i += 1) {
+      group.add(this.createCylinderBetween(points[i], points[i + 1], 0.26, this.materials.tunnelRib));
+    }
+
+    return group;
+  }
+
+  createCylinderBetween(start, end, radius, material) {
+    const direction = end.clone().sub(start);
+    const length = direction.length();
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, length, 6), material);
+    mesh.position.copy(start).add(end).multiplyScalar(0.5);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
+    mesh.castShadow = true;
+    return mesh;
+  }
+
   generateObstacles(chunk) {
-    const base = chunk.type === "obstacleField" ? 12 : chunk.type === "narrowPath" ? 7 : 5;
-    const count = Math.floor(base + chunk.index * 0.11 + this.rng.range(0, 4));
+    const base = chunk.type === "obstacleField" ? 12 : chunk.type === "narrowPath" ? 7 : chunk.type === "tunnel" ? 4 : 5;
+    const progression = chunk.type === "tunnel" ? chunk.index * 0.07 : chunk.index * 0.11;
+    const variance = chunk.type === "tunnel" ? this.rng.range(0, 2.5) : this.rng.range(0, 4);
+    const count = Math.floor(base + progression + variance);
     for (let i = 0; i < count; i += 1) {
       const t = this.rng.range(0.13, 0.96);
       const z = lerp(chunk.startZ, chunk.endZ, t);
@@ -290,8 +452,8 @@ export class ChunkManager {
       const lane = this.rng.choice([-0.42, -0.26, -0.08, 0.1, 0.28, 0.43]);
       const x = center + lane * width + this.rng.range(-0.8, 0.8);
       let radius = this.rng.range(0.8, chunk.type === "obstacleField" ? 1.75 : 1.35);
-      let type = this.rng.choice(["rock", "tree", "ice", "spike"]);
-      const rollerChance = chunk.index > 5 ? Math.min(0.28, (chunk.index - 5) * 0.014) : 0;
+      let type = chunk.type === "tunnel" ? this.rng.choice(["rock", "ice", "spike"]) : this.rng.choice(["rock", "tree", "ice", "spike"]);
+      const rollerChance = chunk.type === "tunnel" ? 0 : chunk.index > 5 ? Math.min(0.28, (chunk.index - 5) * 0.014) : 0;
       if (this.rng.chance(rollerChance)) {
         type = "roller";
         radius = this.rng.range(1.05, 1.55);
@@ -361,18 +523,30 @@ export class ChunkManager {
   }
 
   generateCollectibles(chunk) {
-    const count = chunk.type === "crystalLine" ? 18 : chunk.type === "obstacleField" ? 8 : 12;
-    const laneOffset = this.rng.range(-0.32, 0.32);
+    const count = chunk.type === "crystalLine" ? 18 : chunk.type === "obstacleField" ? 8 : chunk.type === "tunnel" ? 11 : 12;
+    const laneOffset = chunk.type === "tunnel" ? 0 : this.rng.range(-0.32, 0.32);
     for (let i = 0; i < count; i += 1) {
       const t = (i + 1) / (count + 1);
       const z = lerp(chunk.startZ, chunk.endZ, t);
       const center = this.centerAt(chunk, t);
       const width = this.widthAt(chunk, t);
-      const wave = Math.sin(t * Math.PI * 2 + chunk.index) * 0.16;
+      const waveScale = chunk.type === "tunnel" ? 0.1 : 0.16;
+      const wave = Math.sin(t * Math.PI * 2 + chunk.index) * waveScale;
       const x = center + (laneOffset + wave) * width;
       if (this.hasObstacleNear(chunk, x, z, 2.5)) continue;
       const roll = this.rng.next();
-      const type = roll > 0.965 ? "shield" : roll > 0.925 ? "boost" : roll > 0.865 ? "gold" : roll > 0.79 ? "flow" : "crystal";
+      const type =
+        chunk.type === "tunnel" && i === Math.floor(count / 2)
+          ? "flow"
+          : roll > 0.965
+            ? "shield"
+            : roll > 0.925
+              ? "boost"
+              : roll > 0.865
+                ? "gold"
+                : roll > 0.79
+                  ? "flow"
+                  : "crystal";
       this.addCollectible(chunk, type, x, z);
     }
   }
@@ -666,6 +840,28 @@ export class ChunkManager {
         transparent: true,
         opacity: 0.82,
         depthWrite: false
+      }),
+      tunnelWall: new THREE.MeshStandardMaterial({
+        color: 0x26364a,
+        roughness: 0.9,
+        emissive: 0x55ecff,
+        emissiveIntensity: 0.04,
+        transparent: true,
+        opacity: 0.84,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        flatShading: true
+      }),
+      tunnelRib: new THREE.MeshBasicMaterial({ color: 0x55ecff, transparent: true, opacity: 0.96, depthTest: false, depthWrite: false }),
+      tunnelLight: new THREE.MeshStandardMaterial({ color: 0x55ecff, roughness: 0.18, emissive: 0x55ecff, emissiveIntensity: 0.95 }),
+      tunnelRail: new THREE.LineBasicMaterial({ color: 0x55ecff, transparent: true, opacity: 0.86 }),
+      tunnelGlow: new THREE.MeshBasicMaterial({
+        color: 0x55ecff,
+        transparent: true,
+        opacity: 0.42,
+        depthTest: false,
+        depthWrite: false,
+        side: THREE.DoubleSide
       }),
       trunk: new THREE.MeshStandardMaterial({ color: 0x6d4d35, roughness: 0.86, flatShading: true }),
       pine: new THREE.MeshStandardMaterial({ color: 0x17645f, roughness: 0.74, flatShading: true }),
